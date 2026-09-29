@@ -276,7 +276,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 21 | `shop:auth` | shell | yes | | | done |
 | 22 | `shop:account-orders` | 17, 21 | no | | | no customer accounts |
 | 23 | `shop:account-profile` | 13, 17, 21 | no | | | no customer accounts |
-| 24 | `shop:admin-shell` | 21 | yes | | | |
+| 24 | `shop:admin-shell` | 21 | yes | | | done |
 | 25 | `shop:admin-products` | 3, 24 | yes | | | |
 | 26 | `shop:admin-images` | 25 | yes | | | |
 | 27 | `shop:admin-taxonomy` | 24 | yes | | | |
