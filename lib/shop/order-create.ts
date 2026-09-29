@@ -358,5 +358,12 @@ export async function createOrder(
     } satisfies OrderSuccessResponse;
   });
 
+  try {
+    const { sendOrderEmails } = await import("@/lib/shop/email");
+    await sendOrderEmails(result.orderId);
+  } catch (err) {
+    console.error("[order-emails]", result.orderId, err);
+  }
+
   return result;
 }
