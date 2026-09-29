@@ -19,6 +19,7 @@ const PATHS = [
   ["discounts", "SAVE10"],
   ["orders", "order-1"],
   ["counters", "orders"],
+  ["users", "user-1"],
 ] as const;
 
 beforeAll(async () => {
