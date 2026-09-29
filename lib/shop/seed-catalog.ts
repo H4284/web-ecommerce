@@ -85,7 +85,7 @@ export function buildSeedBrand(): Brand & { id: string } {
 const NAMES = [
   "Qelibar",
   "Vesë",
-  "Kedër",
+  "Kreatinë",
   "Trëndafil",
   "Misk",
   "Bergamotë",
