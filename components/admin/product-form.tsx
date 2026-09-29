@@ -11,10 +11,12 @@ import {
 } from "@/lib/shop/admin-product-schema";
 import { slugify } from "@/lib/shop/slug";
 import type { AdminProductDetail } from "@/lib/shop/admin-products";
+import type { ImageRef } from "@/lib/shop/schemas";
 import {
   saveProductAction,
   updateStockAction,
 } from "@/app/admin/products/actions";
+import { ProductImageEditor } from "@/components/admin/product-image-editor";
 import { cn } from "cn";
 
 type Opt = { id: string; name: string };
@@ -108,6 +110,11 @@ export function ProductForm({ product, brands, categories }: ProductFormProps) {
   const [seoDescription, setSeoDescription] = useState(
     product?.seo?.description ?? "",
   );
+  const [images, setImages] = useState<ImageRef[]>(
+    product?.images?.length
+      ? product.images
+      : [{ path: `products/${product?.id ?? "new"}/0`, alt: product?.name ?? "" }],
+  );
   const [options, setOptions] = useState<OptionDraft[]>(
     product?.options?.length
       ? product.options.map((o) => ({
@@ -172,9 +179,15 @@ export function ProductForm({ product, brands, categories }: ProductFormProps) {
       categoryIds,
       shortDescription,
       description,
-      images: product?.images?.length
-        ? product.images
-        : [{ path: `products/${product?.id ?? "new"}/0`, alt: name || "product" }],
+      images:
+        images.length > 0
+          ? images
+          : [
+              {
+                path: `products/${product?.id ?? "new"}/0`,
+                alt: name || "product",
+              },
+            ],
       options: optionPreview,
       status,
       isNew,
@@ -569,6 +582,11 @@ export function ProductForm({ product, brands, categories }: ProductFormProps) {
         </label>
       </div>
 
+      <ProductImageEditor
+        productId={product?.id ?? null}
+        images={images}
+        onChange={setImages}
+      />
       <p className="text-xs text-ink-muted">{adminCopy.productImagesHint}</p>
 
       {message ? <p className="text-sm text-ink">{message}</p> : null}

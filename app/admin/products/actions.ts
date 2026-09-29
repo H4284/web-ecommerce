@@ -6,6 +6,11 @@ import {
   saveAdminProduct,
   updateAdminStock,
 } from "@/lib/shop/admin-products";
+import {
+  ImageTooLargeError,
+  MAX_IMAGE_BYTES,
+  uploadAdminProductImage,
+} from "@/lib/shop/admin-images";
 
 export type ActionResult =
   | { ok: true; id?: string; stock?: number; count?: number }
@@ -44,5 +49,46 @@ export async function bulkStatusAction(input: unknown): Promise<ActionResult> {
   } catch (err) {
     console.error("[admin] bulkStatus", err);
     return { ok: false, error: "bulk_failed" };
+  }
+}
+
+export type UploadImageResult =
+  | { ok: true; image: { path: string; alt: string } }
+  | { ok: false; error: string };
+
+export async function uploadProductImageAction(
+  formData: FormData,
+): Promise<UploadImageResult> {
+  try {
+    const productId = String(formData.get("productId") ?? "");
+    const alt = String(formData.get("alt") ?? "").trim();
+    const file = formData.get("file");
+
+    if (!productId || !alt) {
+      return { ok: false, error: "invalid" };
+    }
+    if (!(file instanceof File)) {
+      return { ok: false, error: "invalid" };
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      return { ok: false, error: "image_too_large" };
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (buffer.byteLength > MAX_IMAGE_BYTES) {
+      return { ok: false, error: "image_too_large" };
+    }
+
+    const image = await uploadAdminProductImage({ productId, alt, buffer });
+    return { ok: true, image };
+  } catch (err) {
+    if (err instanceof ImageTooLargeError) {
+      return { ok: false, error: "image_too_large" };
+    }
+    if (err instanceof Error && err.message === "image_too_large") {
+      return { ok: false, error: "image_too_large" };
+    }
+    console.error("[admin] uploadImage", err);
+    return { ok: false, error: "upload_failed" };
   }
 }
