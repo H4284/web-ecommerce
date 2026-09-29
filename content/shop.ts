@@ -27,6 +27,11 @@ export const shopCopy = {
   descriptionHeading: "Përshkrimi",
   categoriesHeading: "Kategoritë",
   relatedHeading: "Të ngjashme",
+  searchPlaceholder: "Kërko produkte…",
+  searchEmpty: "Nuk u gjet asnjë produkt.",
+  searchHint: "Shkruaj të paktën 2 shkronja.",
+  searchPageTitle: "Kërkimi",
+  searchBrowseCategories: "Shfleto kategoritë",
   optionLabels: {
     size: "Mililitra",
     concentration: "Përqendrimi",

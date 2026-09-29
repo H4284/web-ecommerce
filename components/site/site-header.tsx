@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { NavCategory } from "@/lib/shop/nav";
 import { site } from "@/content/site";
+import { SearchDialog } from "@/components/shop/search-dialog";
 import { CartButton } from "@/components/site/cart-button";
 import { DesktopNav } from "@/components/site/desktop-nav";
 import { MobileNav } from "@/components/site/mobile-nav";
-import { SearchButton } from "@/components/site/search-button";
 
 type SiteHeaderProps = {
   categories: NavCategory[];
@@ -26,7 +26,7 @@ export function SiteHeader({ categories, cartCount = 0 }: SiteHeaderProps) {
           <DesktopNav categories={categories} />
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <SearchButton />
+          <SearchDialog />
           <CartButton count={cartCount} />
         </div>
       </div>
