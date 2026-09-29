@@ -83,6 +83,11 @@
   --band-collage-height-mobile: 126.875rem;
   --collage-tile-width: 9rem;
 
+  /* Home band 3 — manifesto */
+  --story-title-max: 81.0625rem;
+  --story-body-max: 56.25rem;
+  --story-decor-size: 31.5rem;
+
   /* Motion */
   --duration-fast: 180ms;
   --duration-base: 320ms;

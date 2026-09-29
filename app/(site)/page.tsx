@@ -3,6 +3,7 @@ import { buildHeroSlides } from "@/lib/shop/hero-slides";
 import { homeBrand } from "@/content/home";
 import { BrandCollage } from "@/components/home/brand-collage";
 import { HeroSlideshow } from "@/components/home/hero-slideshow";
+import { StoryManifesto } from "@/components/home/story-manifesto";
 
 export default async function HomePage() {
   let products: Awaited<ReturnType<typeof getNewProducts>> = [];
@@ -26,6 +27,7 @@ export default async function HomePage() {
     <>
       <HeroSlideshow slides={slides} />
       <BrandCollage tiles={collageTiles} />
+      <StoryManifesto />
     </>
   );
 }

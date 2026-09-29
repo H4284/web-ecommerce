@@ -56,3 +56,13 @@ export const homeBrand = {
     { left: "58%", top: "8%", aspect: "1.1", drift: "b" },
   ],
 } as const;
+
+export const homeStory = {
+  decorWord: "Sanem",
+  headline:
+    "Sanem, kapitulli i parë; një erë që qëndron me ty dhe rifloron çdo ditë.",
+  paragraphs: [
+    "Sanem lind në Prishtinë si një ritual i qetë. Parfume të prodhuara me kujdes, për lëkurën dhe për momentin kur zgjidh erën që të përfaqëson.",
+    "Çdo shishe mban një histori të shkurtër dhe të saktë: nota që hapen ngadalë, qëndrueshmëri e butë, dhe luks pa zhurmë — quiet luxury in a bottle.",
+  ],
+} as const;
