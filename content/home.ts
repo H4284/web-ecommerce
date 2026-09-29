@@ -66,3 +66,9 @@ export const homeStory = {
     "Çdo shishe mban një histori të shkurtër dhe të saktë: nota që hapen ngadalë, qëndrueshmëri e butë, dhe luks pa zhurmë — quiet luxury in a bottle.",
   ],
 } as const;
+
+export const homeProducts = {
+  eyebrow: "Koleksioni",
+  ctaLabel: "Eksploro",
+  cutoutPendingAlt: "Shishe parfumi — në pritje",
+} as const;
