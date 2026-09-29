@@ -265,7 +265,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 10 | `shop:product-extras` | 9 | yes | | | done · related only |
 | 11 | `shop:search` | 3, shell | yes | | | done |
 | 12 | `shop:legal-pages` | shell | yes | | | done |
-| 13 | `shop:cart-store` | 1 | yes | | | |
+| 13 | `shop:cart-store` | 1 | yes | | | done |
 | 14 | `shop:cart-validate` | 3, 4, 13 | yes | | | |
 | 15 | `shop:cart-drawer` | 9, 14 | yes | | | page + header count |
 | 16 | `shop:checkout-form` | 15 | yes | | | |
