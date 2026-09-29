@@ -45,7 +45,8 @@ Primary CTA label: WhatsApp
 | Checkout | `/checkout` | live | Place the order | Thrio drafts · client approves |
 | Contact | `/kontakt` | live | Open WhatsApp | Thrio drafts · client approves |
 | FAQ | `/pyetje-te-shpeshta` | live | Find an answer | Thrio drafts · client approves |
-| Shipping and returns | `/dergesa-dhe-kthime` | live | Read the policy | Thrio drafts · client approves |
+| Shipping | `/dergesa` | live | Read delivery policy | Thrio drafts · client approves |
+| Returns | `/kthime` | live | Read returns policy | Thrio drafts · client approves |
 | Privacy | `/privatesia` | live | Read the policy | Thrio |
 | Terms | `/kushtet` | live | Read the policy | Thrio |
 | Client dashboard | `/admin` | live | Manage the shop | — |
@@ -263,7 +264,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 9 | `shop:product-page` | 4, 6 | yes | | | done |
 | 10 | `shop:product-extras` | 9 | yes | | | done · related only |
 | 11 | `shop:search` | 3, shell | yes | | | done |
-| 12 | `shop:legal-pages` | shell | yes | | | |
+| 12 | `shop:legal-pages` | shell | yes | | | done |
 | 13 | `shop:cart-store` | 1 | yes | | | |
 | 14 | `shop:cart-validate` | 3, 4, 13 | yes | | | |
 | 15 | `shop:cart-drawer` | 9, 14 | yes | | | page + header count |

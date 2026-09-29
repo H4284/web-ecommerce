@@ -25,11 +25,13 @@ export const site = {
     helpHeading: "Ndihma",
     legalHeading: "Ligjore",
     helpLinks: [
-      { href: "/dergesa-dhe-kthime", label: "Dorëzimi dhe pagesa" },
+      { href: "/dergesa", label: "Dorëzimi" },
+      { href: "/kthime", label: "Kthimet" },
       { href: "/pyetje-te-shpeshta", label: "Pyetje të shpeshta" },
       { href: "/kontakt", label: "Kontaktoni" },
     ],
     legalLinks: [
+      { href: "/rreth-nesh", label: "Rreth nesh" },
       { href: "/privatesia", label: "Privatësia" },
       { href: "/kushtet", label: "Kushtet" },
     ],
