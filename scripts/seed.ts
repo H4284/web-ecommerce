@@ -13,6 +13,8 @@ import {
   buildSeedProducts,
   seedExpectedCounts,
 } from "@/lib/shop/seed-catalog";
+import { buildSeedShopSettings } from "@/lib/shop/seed-settings";
+import { shopSettingsSchema } from "@/lib/shop/settings-schema";
 import { setRemoteProject } from "./lib/remote";
 
 async function writePlaceholderImages(productId: string, color: string) {
@@ -90,13 +92,18 @@ async function main() {
     await recomputeProduct(item.id);
   }
 
+  const shopSettings = buildSeedShopSettings();
+  shopSettingsSchema.parse(shopSettings);
+  await db.collection("settings").doc("shop").set(shopSettings);
+
   const expected = seedExpectedCounts();
   await db.collection("meta").doc("seed").set({
     at: new Date().toISOString(),
     ...expected,
+    settings: true,
   });
 
-  console.log("Seed complete", expected);
+  console.log("Seed complete", { ...expected, settings: true });
 }
 
 main().catch((err) => {

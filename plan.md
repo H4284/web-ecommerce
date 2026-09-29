@@ -248,7 +248,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 1 | `shop:catalog-model` | `/scaffold` | yes | | | done |
 | 2 | `shop:catalog-seed` | 1 | yes | | | done |
 | 3 | `shop:catalog-data` | 2 | yes | | | done |
-| 4 | `shop:settings` | 2 | yes | | | |
+| 4 | `shop:settings` | 2 | yes | | | done |
 | 5 | `shop:rules-tests` | 3, 4 | yes | | | |
 | — | `shell` | 3 | yes | | | |
 | 6 | `shop:product-card` | 3, shell | yes | | | |
