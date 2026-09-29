@@ -1,0 +1,12 @@
+# Keep the agent's index small. Reference PNGs are opened on purpose by /build, not indexed.
+node_modules/
+.next/
+out/
+.wrangler/
+.qa/
+.tmp-starter/
+.emulator-data/
+brief/refs/**/*.png
+brief/photos/
+public/**/*.{png,jpg,jpeg,webp,avif,mp4}
+pnpm-lock.yaml

@@ -1,0 +1,50 @@
+---
+description: Locked stack — Next.js static export on Cloudflare for sites, Sanity standalone Studio for cms, Firebase App Hosting for shops, OpenNext only when another server is needed
+alwaysApply: true
+---
+
+# Stack (do not substitute)
+
+Ask before you add any library not listed here. Record the answer in `plan.md` → Decisions.
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Framework | Next.js App Router + TypeScript, **`output: "export"`** | static files; no server, no Worker bundle (`docs/adr/0006`). Shops: see Per layer |
+| Host | Cloudflare Workers **static assets** via Workers Builds | `main` → production, every branch → preview URL |
+| Forms | one small Worker route (`/api/contact`) in the same project | Turnstile + honeypot + Resend; `code-cloudflare.mdc` |
+| Styles | Tailwind CSS v4, tokens in `@theme` | no raw values in components |
+| Package manager | pnpm | one lockfile |
+| Fonts | `next/font`, max 2 families | licence noted in `DESIGN.md` |
+| Icons | `lucide-react` | one set |
+| Motion | `motion` | GSAP / Lenis only if `DESIGN.md` requires them |
+| Components | shadcn/ui, restyled to tokens | |
+| Images | `next/image` with the Cloudflare Images loader; Sanity CDN for CMS images; shops: pre-sized WebP loader (`code-firebase.mdc`) | explicit size or aspect ratio |
+| Analytics | Cloudflare Web Analytics | cookie banner only if a cookie tracker is added (shops: GA4 + Meta Pixel after consent) |
+| Repo / tasks | GitHub `thrio` org · ClickUp | every PR links a task |
+
+Always allowed: `motion`, `clsx`, `tailwind-merge`, `class-variance-authority`, `lucide-react`,
+`culori`, `apca-w3`, `zod`, `resend`, `@playwright/test` (dev).
+Shops also: `firebase`, `firebase-admin`, `server-only`, `zustand`, `react-hook-form`,
+`@hookform/resolvers`, `sharp`, `@react-email/components`, `react-markdown`, `@tanstack/react-table`;
+dev: `firebase-tools`, `vitest`, `@firebase/rules-unit-testing`, `tsx`.
+
+## Per layer
+
+- `landing`, `multipage`: static export. Copy in `content/*.ts`.
+- `cms`: static export + **standalone Sanity Studio** (`studio/`, deployed to `*.sanity.studio`). A
+  publish in Sanity triggers a rebuild through a Cloudflare deploy hook (`layer-cms.mdc`).
+- `ecommerce`: a Next.js **server** app on **Firebase App Hosting** + Firestore + Firebase Auth +
+  Storage + Resend. Cloudflare keeps DNS only. No Sanity (`layer-ecommerce.mdc`, `code-firebase.mdc`).
+- Another site that needs a server (auth, live data, ISR, a dashboard) uses **OpenNext**
+  (`@opennextjs/cloudflare`) — only with a written reason in `plan.md` → Decisions. Not vinext
+  (`docs/adr/0003`).
+
+## Fixed decisions (read the ADR before you argue)
+
+- Static export is the default because it removed the scaffold friction the team hit (OpenNext,
+  workerd on Windows, sharp, bundle size) and brochure sites do not need a server — `docs/adr/0006`.
+- Sanity Studio is standalone, never embedded — `docs/adr/0002`.
+- Shops run on Firebase App Hosting, cash on delivery first, cards only on the bank's hosted page —
+  `docs/adr/0007`.
+
+Secrets live in env only. `.env.example` lists names, never values.

@@ -1,0 +1,31 @@
+---
+description: CMS layer — Sanity standalone Studio, page builder, collections, rebuild on publish, editor handoff. Load when plan.md Layer is cms.
+alwaysApply: false
+---
+
+# Layer: cms
+
+Inherits `landing` and `multipage` (`00-core.mdc`). Adds a standalone Sanity Studio (`studio/`) and
+moves editorial content from `content/*.ts` into Sanity. Code rules: `code-sanity.mdc`.
+Plan addendum: `.cursor/skills/kickoff/assets/plan-addendum-cms.md` (appended by `/kickoff`).
+
+## Contains
+
+- `studio/` deployed to `<client>.sanity.studio`. Client-owned project, dataset `production`.
+- `page` + `sections[]` (6–10 blocks), `siteSettings`, `seo`, collections from the plan.
+- Collection index pages with the UX from the plan: layout, filters, empty state, pagination, card fields.
+- Publish → rebuild within a few minutes (`code-cloudflare.mdc` → Deploy). Tell the client that number.
+- Editor handoff: `docs/editor-guide.md` in the project, one page, with Studio screenshots.
+
+## Rules
+
+- Content model confirmed in `plan.md` **before** the first schema file.
+- Schema changes after content exists go through the deprecation pattern, never a delete.
+- Seed content: `studio/scripts/seed.ts` from approved copy. No lorem in Sanity.
+- Forms never write to Sanity. Tokens, nav structure, layout never live in Sanity.
+- Build units for this layer: `schema:<type>` (one type per pass, typegen after each), then the pages.
+
+## Done means
+
+Multipage done-means plus: typegen clean · every block has a preview · the editor can create a page,
+reorder sections, publish, and see it live after the rebuild · editor guide delivered.

@@ -1,0 +1,66 @@
+---
+description: Design non-negotiables — hard locks, anti-template Never/Do list, performance targets, asset sources, design-lead voice. Load for any UI, token, asset or design-direction work.
+globs: components/**/*.tsx,app/**/*.tsx,web/src/**/*.tsx,web/app/**/*.tsx,DESIGN.md
+alwaysApply: false
+---
+
+# Design rules
+
+You are the design lead on this site. Ship a specific point of view, not a template.
+Read the filled `DESIGN.md` first. Critique every new UI against it.
+
+## Hard locks (only the user can override, in writing)
+
+| Lock | Rule |
+|---|---|
+| Hero | Landing / branded hero = `100vh` (token `--hero-min-height`). Shop home: the height from the design-reference row, so products show above the fold |
+| Header | Height ≥ 40px (token `--header-height`) |
+| Home | ≥ 5 sections, hero counts |
+| Tokens | Semantic tokens only. No raw hex, px font sizes, font names, durations or easings in components |
+| Type | No Inter / Poppins / Roboto as primary. Max 2 families. Exception only if logged in `DESIGN.md` as a reference match |
+| Layer shape | The layer in `plan.md` decides page count. Do not add routes the plan lacks |
+
+## Never (for UI you invent — blueprint-matched UI is exempt)
+
+If the element is not in the Reference Blueprint, choose differently. If the user asks for it
+directly, flag it once, then comply.
+
+- **Color:** AI-default hues with no brand reason · whole palette from the logo alone · gradient blobs with no job
+- **Type:** default display tracking · body lines longer than ~75ch
+- **Layout:** three identical cards · carded heroes · centering everything · identical padding on consecutive sections (unless the plan says Uniform) · grey 1px border on every card
+- **Effects:** glass with no reason · one radius everywhere · one generic shadow · empty decorations
+- **Motion:** fade-up on every section (max 2 per page) · `ease` / `linear` defaults · motion that delays reading
+- **Content:** lorem or vague copy at review · emoji as icons · mixed icon sets · generic stock as "the business"
+
+## Do
+
+- Structure and palette from the company type and the chosen reference — never from the logo alone.
+- Hero = the thesis. Show the characteristic thing from `plan.md`. Brand name as a hero-level signal.
+- One job per section. Tighter display tracking. One signature element, used once.
+- Copy: active voice, sentence case, plain verbs, specific nouns. UI labels ≤ 3 words.
+- Restyle shadcn components to tokens. Do not ship the default registry look.
+
+## Assets (one source per job)
+
+| Job | Source | Rule |
+|---|---|---|
+| Icons | Lucide | one set |
+| Photos | client first; Unsplash / Pexels | the business type, never the reference's photos |
+| PNG cutouts | pre-cut transparent only | no agent background removal |
+| Illustrations / shapes | unDraw / Haikei | recolour to tokens; only if the blueprint needs them |
+| Logo | client SVG in `brief/brand/` | never redraw it |
+
+Log every non-client asset in `brief/assets.md` (file, source URL, licence, date). Paid fonts only
+if the client buys them. Nothing from the reference site: not photos, illustrations, fonts, copy.
+
+## Performance (production build or preview URL only — never `next dev`)
+
+Lighthouse mobile ≥ 90 · LCP < 2.5 s · CLS < 0.1 · INP < 200 ms, median of 3.
+Hero image ≤ 200 KB, AVIF / WebP, `priority`, exact size. Cut in this order when failing:
+3D → GSAP / Lenis → scroll reveals → image weight → font weights.
+
+## Answer like a design lead
+
+One verdict, then 2–3 moves, tied to this business's characteristic thing. Name what is weak, then
+the fix. Speak in tokens and `DESIGN.md` names, not hex codes. Empty `DESIGN.md` → `/refs` then
+`/design` before any polish.

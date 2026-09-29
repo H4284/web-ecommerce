@@ -1,0 +1,69 @@
+---
+description: Next.js conventions — folders, static export config (landing, multipage, cms), server components, images, forms, metadata, i18n, 404, test tooling. Shops add code-firebase.mdc.
+globs: app/**,components/**,lib/**,content/**,web/src/**,next.config.*,src/worker.ts
+alwaysApply: false
+---
+
+# Next.js conventions
+
+Hard locks live in `design.mdc`. Enforce them, do not restate them.
+
+## Folders
+
+```
+app/(site)/…          routes, shared layout
+components/blocks/    one folder per band (hero, features, faq…)
+components/ui/        shadcn primitives, restyled to tokens
+components/layout/    header, footer, nav, skip link
+content/              typed copy: site.ts (name, NAP, nav, social, locales), home.ts, <page>.ts
+lib/                  cn(), validators (zod), cf-image-loader.ts
+public/               static assets; og.png
+src/worker.ts         the small Worker for /api/* (forms) — code-cloudflare.mdc
+```
+
+cms layer: the Next.js app moves to `web/`, the Studio to `studio/` (`code-sanity.mdc`).
+ecommerce layer: a server app with `app/admin/`, `app/api/`, `lib/shop/` and no Worker (`code-firebase.mdc`).
+
+## Static export (`next.config.ts`)
+
+```ts
+const nextConfig: NextConfig = {
+  output: "export",
+  trailingSlash: true,                       // out/about/index.html — matches Cloudflare asset routing
+  images: { loader: "custom", loaderFile: "./lib/cf-image-loader.ts" },
+};
+```
+
+No route handlers, no server actions, no `dynamic = "force-dynamic"`, no middleware in a static
+export — the form lives in `src/worker.ts`. Sanity data is fetched at build time.
+**Layer `ecommerce` skips this section:** it is a server app (`output: "standalone"`), and
+`code-firebase.mdc` owns its config.
+
+## Rules
+
+- Server Components by default; `"use client"` only for interaction, hooks or browser APIs, at the leaves.
+- Copy never lives in JSX. `content/*.ts` (landing, multipage) or Sanity (cms).
+- Every route exports `metadata`. Title ≤ 60 chars, description ≤ 155. `app/sitemap.ts`,
+  `app/robots.ts`, `app/not-found.tsx` exist from `/scaffold` on.
+- Images: `next/image` with explicit `width`/`height` or `fill` + aspect-ratio container; `priority`
+  on the LCP image only; hero source ≤ 200 KB AVIF/WebP. Loader: Cloudflare Images for local files,
+  Sanity CDN for CMS files, pre-sized WebP for shops (`code-firebase.mdc` → Images).
+- Fonts: `next/font/google` or `/local`, `display: "swap"`, two families max, `font-display` and
+  `font-body` tokens.
+- Forms: client `zod` schema shared with the Worker; the client posts JSON to `/api/contact` with
+  the Turnstile token; the Worker validates (honeypot first — `site-chrome.mdc`). Shops: the same
+  order of checks, in route handlers of the same app.
+- Links: `next/link` internal; `<a rel="noopener">` external; `tel:` / `mailto:` / `wa.me` from `content/site.ts`.
+- i18n: Albanian + English → `app/[locale]/` with a locale list in `content/site.ts` and `hreflang`
+  alternates; `generateStaticParams` for locales. One locale → no `[locale]` segment.
+- Motion: `motion`, tokens for duration and easing, reduced-motion variant, ≤ 2 scroll reveals per page.
+- Sticky elements: compute after mount, not with `setState` inside an effect that runs every render.
+- No `any`, no `@ts-ignore`. `pnpm typecheck` = `tsc --noEmit`. ESLint ignores `out/`, `.open-next/`.
+- `@playwright/test` is a dev dependency and `pnpm exec playwright install chromium` runs once in
+  `/scaffold` — `/qa` scripts need it (`Cannot find module 'playwright'` shipped once).
+
+## Before you say done
+
+`pnpm typecheck` · `pnpm lint` · `pnpm build` (→ `out/`) · `pnpm preview` serves `out/` ·
+screenshots **375 + 1440** · per-band check for bands. Shops: `pnpm test` too, and `pnpm start`
+instead of `pnpm preview`.

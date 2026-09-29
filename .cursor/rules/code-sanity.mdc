@@ -1,0 +1,48 @@
+---
+description: Sanity conventions — standalone Studio, schema style, page builder, GROQ, typegen, build-time fetching, rebuild on publish. Load for any Studio, schema or content-fetch work.
+globs: studio/**,web/src/sanity/**,sanity/**,**/*.groq.ts,sanity.config.*,sanity.cli.*
+alwaysApply: false
+---
+
+# Sanity conventions (cms layer)
+
+**Before schema or query work:** Sanity MCP `list_sanity_rules`, then load `schema`, `groq`,
+`nextjs`, `page-builder`, `typegen`, `seo`, `image` in one call. Those are the official rules; this
+file adds the Thrio house rules.
+
+## Shape
+
+```
+studio/    standalone Sanity Studio (Vite). `sanity deploy` → <slug>.sanity.studio
+web/       Next.js static export. Fetches Sanity at build time.
+```
+
+Never embed the Studio in Next.js (`docs/adr/0002`). One `projectId`, dataset `production`.
+The client's email owns the Sanity project; Thrio is admin.
+
+## Content model (confirm in `plan.md` before schema code)
+
+- `page` with `sections[]` (page builder, 6–10 block types at launch), `siteSettings` singleton
+  (nav, footer, NAP, social, default SEO), shared `seo` object. Collections only when `plan.md` lists them.
+- Model **what things are**, not how they look. `features`, not `threeColumnRow`.
+- `defineType` / `defineField` / `defineArrayMember` always; an icon from `@sanity/icons/<Name>` on every type.
+- Objects by default; references only for content shared across pages. Every block has a `preview`.
+- Editorial content only. Tokens, layout, nav structure, secrets stay in code. Forms never write to Sanity.
+- Never delete a field with production data: deprecate → readOnly → hidden → migrate → remove.
+
+## Fetching (static export)
+
+- `web/src/sanity/client.ts` with `useCdn: false` for builds; all GROQ in `queries.ts` with
+  `defineQuery`; always project `_key` on arrays.
+- `generateStaticParams` from a slugs query; `perspective: "published"`.
+- `sanity typegen generate` after every schema or query change; components type from
+  `PAGE_QUERYResult`. No hand-written content types.
+- Page builder renders by `switch (block._type)`; React `key={block._key}`.
+- Heading levels come from the component's position, never from the schema.
+- Publish → webhook → rebuild (`code-cloudflare.mdc` → Deploy). No Live Content API, no draft
+  preview in a static export; if the client needs live preview, that is a server site (OpenNext).
+
+## Images
+
+Sanity CDN with `@sanity/image-url`; `alt` required in the schema; hotspot on; `next/image` with
+the Sanity loader and an explicit aspect ratio per usage.

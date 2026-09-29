@@ -1,0 +1,21 @@
+---
+description: Writing rules for docs, tickets, PRs, commits and chat — short, plain, one fact per sentence
+alwaysApply: true
+---
+
+# Writing (always on)
+
+The team reads English as a second language. Interns follow these files without you.
+Write so a B2 reader understands on the first pass.
+
+- One topic per sentence. Instructions: 20 words or fewer. Descriptions: 25 or fewer.
+- Active voice. Simple tenses. Keep the articles ("the", "a") — no telegraphic fragments.
+- Plain verbs: use, run, open, check. Not: leverage, utilise, facilitate.
+- Bold the parameter a reader must not miss: **375 and 1440**, **`SANITY_API_READ_TOKEN`**.
+- Say the fact, not the ticket: "the form posts to Resend", not "see CU-123".
+- Link, do not restate. Every rule has one owner file. Others point to it.
+- Date empirical claims: `Verified 2026-09-18: …`. Undated claims rot.
+- Numbered lists for steps and criticism. Prose for explanations. No walls of caveats.
+
+Applies to: `docs/`, `plan.md`, `DESIGN.md`, `DECISIONS.md`, ClickUp tickets, PR descriptions,
+commit messages, and your chat replies. UI copy follows `design.mdc` instead.

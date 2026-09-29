@@ -1,0 +1,43 @@
+---
+description: Site chrome defaults — header, footer, hero, type, layout, a11y and forms. Breakable by the Reference Blueprint or the user. Includes the sticky-header and honeypot lessons.
+globs: components/layout/**,components/site/**,app/**/layout.tsx,app/not-found.tsx,app/api/**,web/src/app/**/layout.tsx
+alwaysApply: false
+---
+
+# Site chrome (breakable defaults)
+
+Prefer these. The Reference Blueprint or the user wins — note the override once in `DESIGN.md`.
+
+**Header / nav.** Sticky · readable over the hero · logo left, one primary CTA right — **also at 375**
+(a practice run lost the Reserve CTA in the mobile header) · logo links to `/` · mobile drawer with
+focus trap, `aria-expanded`, `aria-controls`. Shops: search, account and cart sit right; the cart
+button with its item count is the primary action, also at 375.
+
+**Anchors under a sticky header.** Set `scroll-padding-top: var(--header-height)` on `html`, and
+`scroll-margin-top` on anchor targets. Otherwise `#reserve` lands hidden under the bar (shipped once).
+
+**Sticky bottom bars.** Reserve space with padding on `body` (or a spacer after `<footer>`), not only
+on `main` — the footer sat under the bar once.
+
+**Footer.** Logo, nav, contact, legal · NAP matches `content/site.ts` (or `siteSettings` in cms) ·
+contact CTA in header **and** footer.
+
+**Hero.** One headline, one subline, one CTA group · full-bleed media · no cards · no floating badges
+unless in the blueprint · content fits the viewport.
+
+**Type and UI.** Max 2 fonts · tighter display tracking · body ≤ ~75ch · sentence-case labels ·
+one icon set · primary + secondary buttons only · no emoji icons.
+
+**Layout.** One gutter token · section padding follows `plan.md` Section rhythm · one job per
+section · alt text on every image · 404 matches the system · routes land at scroll top · decorative
+layers under content with `pointer-events-none` · widths from `clientWidth`, never `100vw`
+(scrollbar overflow shipped once).
+
+**Conversion links.** `tel:`, `mailto:` and `https://wa.me/<number>` are filled from `content/site.ts`.
+An empty phone or WhatsApp number fails `/build shell` — Reserve must call or open WhatsApp.
+
+**Forms.** Labels, inline errors, `aria-live` status, server validation with `zod`, Turnstile,
+rate limit. **Honeypot first:** if the hidden field is filled, return the normal success response
+**before** any validation — a `max(0)` rule returned 400 to bots and revealed the trap (shipped once).
+
+**A11y.** Visible focus · skip link · touch targets ≥ 44×44 · `prefers-reduced-motion`.

@@ -1,0 +1,100 @@
+---
+description: Online shop layer (ecommerce) — what a shop contains, the three references, the money / stock / order / payment / access invariants, the admin, the build units. Load when plan.md Layer is ecommerce, or for any catalog, cart, checkout, order, payment or admin work.
+globs: app/admin/**,app/api/**,lib/shop/**,stores/**,emails/**,firestore.rules,storage.rules
+alwaysApply: false
+---
+
+# Layer: ecommerce (online shop)
+
+Inherits `landing` and `multipage` (routes, metadata, sitemap, 404). Not `cms`: a shop has no Sanity,
+its own `/admin` edits products and content. Stack: `docs/adr/0007`. Code: `code-firebase.mdc`.
+Plan addendum: `.cursor/skills/kickoff/assets/plan-addendum-ecommerce.md`.
+Units: `.cursor/skills/build/references/shop-units.md`.
+
+## Three references, three jobs
+
+| Source | Gives | Never gives |
+|---|---|---|
+| **Feature reference** — one live shop in the client's market (`/refs`) | pages, flows, fields, rules, the labels customers expect | its look, copy, product texts, photos, catalog, brands |
+| **Design reference** — from the reference list (`/refs`) | layout: bands, measurements, CTA placement | identity |
+| **Client** | name, logo, colours, copy, products, prices, policies | — |
+
+Feature bands (category tiles, product carousels, brand strip, newsletter) may join the home page when
+the feature inventory lists them. They take the archetype of the closest design-reference band and are
+marked `feature — archetype of band N` in the blueprint; `/build` uses band N's screenshots. This is
+the only exception to "do not invent bands".
+
+## Invariants — a unit that breaks one does not ship
+
+A chat instruction cannot waive an invariant. Only Ken or the senior dev can, in `plan.md` → Decisions.
+
+**Money**
+1. Money is an integer in cents (`priceCents`). One helper formats it (`lib/shop/money.ts`). No floats in totals.
+2. The server computes every total. Client prices are for display only. The cart check and the order
+   route re-read price, stock and status from Firestore, never from a cache. Input limits: `qty` is an
+   integer from 1 to 99, at most 50 lines, and lines with the same variant merge before the stock check.
+
+**Stock and orders**
+3. Stock changes only inside one Firestore transaction: order placed (−, sets `stockTaken`), card
+   payment confirmed (−, sets `stockTaken`), order cancelled (+, only when `stockTaken`), admin stock
+   correction (compare-and-set). The last unit sells once. Stock never goes below 0.
+4. The order number comes from a counter document in the same transaction: `<PREFIX>-<YYYY>-<00042>`.
+5. An order keeps a snapshot of every line: name, variant label, SKU, unit price. Product edits never
+   change old orders.
+6. `status`: `pending` → `confirmed` → `shipped` → `delivered`, or `cancelled`. `paymentStatus`:
+   `cod_due` · `awaiting_payment` · `paid` · `failed` · `refunded`. Every change appends
+   `{ status, at, by, note }` to `timeline`.
+7. Emails go out after the transaction commits, once per event. Store `emails.<event>At` on the order.
+
+**Payments**
+8. Cash on delivery is the default method. Bank transfer: stock is taken when the order is placed,
+   `paymentStatus` stays `awaiting_payment` until the admin marks it paid.
+9. Cards only on the bank's hosted page. Card number, CVV and expiry never reach our server, logs or
+   Firestore. Store the bank's transaction id and the last 4 digits only.
+10. Bank callback: verify the signature first → find the order by **our** reference → compare the
+    amount with the stored total → already `paid` returns 200 and changes nothing → one transaction.
+11. Field names, the signature algorithm and test cards come from the bank's integration pack. Never
+    invent them. No pack → `shop:payment-bank` stays blocked.
+12. Stripe only for a client with an EU or UK company (ADR 0007).
+
+**Access**
+13. Admin = custom claim `admin: true`. Every admin page, admin data function, server action and
+    route handler calls `requireAdmin()`. A layout check alone is not enough: layouts do not re-run on
+    client navigation. Account pages and their data functions call `requireUser()`. Never rely on
+    `proxy.ts` for access.
+14. The browser never reads or writes Firestore. All data goes through server code with
+    `firebase-admin`, so `firestore.rules` stays deny-all. `storage.rules` allows public reads of
+    `products/` and `content/` images only.
+15. Every admin write adds an `auditLogs` entry: who, what, when, which document.
+
+**Customers**
+16. Guest checkout is on by default. Customer accounts only if the plan says so.
+17. Checkout labels in the plan's language. Phone and city rules from the plan (Kosovo default:
+    `+383` and the list of all municipalities).
+18. The cart survives a reload. It is cleared only when the order is placed: the order route returns
+    200 (cash on delivery, transfer) or the return page shows `paid` (card).
+
+**Tracking and legal**
+19. GA4 and Meta Pixel load only after cookie consent. `purchase` fires once, on the thank-you page.
+20. Terms, privacy, returns and shipping pages carry the client's approved text. Kosovo: Law No.
+    06/L-034 on Consumer Protection — the client's lawyer confirms the returns text.
+
+## The admin (the owner runs the shop without a developer)
+
+Products with variants, images and stock · categories and brands · orders (status, note, cancel,
+printable invoice, CSV export) · discount codes · home content blocks · settings (shipping methods,
+payment methods, free-shipping threshold, company details). UI in the plan's language.
+`docs/admin-guide.md` with screenshots goes to the client at handoff.
+
+## Build order
+
+`/scaffold` → `shop:catalog-model` … `shop:rules-tests` → `/build shell` → the other `shop:*` units
+in the order of `shop-units.md` (home bands as `home:band-N`) → `/qa` → `/ship`. The Producer copies
+the plan's Shop build order into ClickUp: one task per unit, with the unit's prompt and its "Done when" list.
+
+## Done means
+
+Multipage done-means, plus: the golden-path e2e test is green (browse → variant → cart → cash-on-delivery
+order → admin sees it → stock drops) · rules tests green for every collection · two parallel orders
+for the last unit → one wins · a tampered client price does not change the total · each email
+arrives once · consent gates tracking · daily backups scheduled · admin guide delivered.

@@ -1,0 +1,61 @@
+---
+description: Cloudflare — static assets Worker for the site, the small forms Worker, Workers Builds previews, secrets, Turnstile, analytics, domains; OpenNext only when a server is needed
+globs: wrangler.*,src/worker.ts,.github/workflows/**,cloudflare-env.d.ts,.dev.vars*,open-next.config.*
+alwaysApply: false
+---
+
+# Cloudflare
+
+Verified 2026-09-27 against the Cloudflare Workers static-assets docs. Before you change a value,
+check the Cloudflare docs MCP — and date the change.
+
+Shops (`ecommerce`) do not run on Cloudflare. Cloudflare keeps their DNS, and the App Hosting
+records stay **DNS only** (grey cloud) — `docs/adr/0007`. Turnstile keys still come from here.
+
+## Static site (`landing`, `multipage`, `cms`)
+
+`wrangler.jsonc`:
+
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "<client-slug>",
+  "compatibility_date": "2025-09-01",
+  "main": "src/worker.ts",
+  "assets": { "directory": "./out", "not_found_handling": "404-page", "html_handling": "auto-trailing-slash",
+              "run_worker_first": ["/api/*"] }
+}
+```
+
+- `pnpm build` = `next build` → `out/`. `pnpm preview` = `wrangler dev` (serves `out/` + the Worker).
+  Works on macOS, Linux and Windows without Docker.
+- `src/worker.ts` handles `/api/contact` only: honeypot → Turnstile verify
+  (`https://challenges.cloudflare.com/turnstile/v0/siteverify`) → `zod` validate → Resend → JSON.
+  Everything else falls through to the assets. Rate limit with the Workers rate-limiting binding when
+  spam appears (docs MCP for the binding).
+- `pnpm cf-typegen` = `wrangler types` → `cloudflare-env.d.ts` for the bindings and secrets.
+
+## Deploy
+
+- **Workers Builds** (GitHub integration): `main` → production, every branch → preview URL. Paste
+  the preview URL in the PR. No production deploys from a laptop.
+- cms: a Sanity publish must rebuild the site. Use a deploy hook if the Cloudflare dashboard offers
+  one for Workers Builds; otherwise deploy cms sites from GitHub Actions (`wrangler deploy`) and let
+  the Sanity webhook call `repository_dispatch`. Record which one you used in `plan.md` → Decisions.
+- Secrets: `wrangler secret put NAME` or the dashboard. `.dev.vars` locally (ignored). Never in git.
+  Names: `TURNSTILE_SECRET_KEY`, `RESEND_API_KEY`, `CONTACT_TO`. Public: `NEXT_PUBLIC_TURNSTILE_SITE_KEY`,
+  `NEXT_PUBLIC_CF_BEACON_TOKEN`.
+- Turnstile test keys for previews: site `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`.
+- Domain: DNS on Cloudflare, custom domain on the Worker, `www` → apex redirect rule. MX untouched.
+- Images: Cloudflare Images transformations (`/cdn-cgi/image/…` via `lib/cf-image-loader.ts`) need
+  transformations enabled on the zone; until the domain is on Cloudflare, previews show unoptimised
+  originals — expected.
+
+## Server sites only (OpenNext — needs a reason in `plan.md` → Decisions)
+
+`pnpm create cloudflare@latest <slug> --framework=next --platform=workers` and choose the
+**OpenNext** adapter explicitly — the template offers vinext first (`docs/adr/0003`). Then
+`nodejs_compat`, `assets.directory: .open-next/assets`, R2 incremental cache for ISR, `pnpm approve-builds`
+for `sharp` / `workerd`. Windows: run `pnpm preview` in WSL2 or rely on the Cloudflare preview URL —
+`workerd` on Windows returned 500 in practice. Keep the Worker bundle small: no Studio, no heavy
+charts on the server.

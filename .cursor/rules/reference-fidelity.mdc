@@ -1,0 +1,52 @@
+---
+description: Reference fidelity — after the user picks a reference site, its layout is binding. The blueprint row, the measurements, the per-band check, what never to copy. Load for /refs, /build, /qa and any layout dispute.
+alwaysApply: false
+---
+
+# Reference fidelity (hard)
+
+The user picks one reference site from the top 5 (`/refs`). From then on its **layout** is binding.
+Matching the reference's mood, palette or fonts is **not** a pass.
+
+**Keep from the reference:** section order, archetypes, element positions, media aspect and side,
+CTA count and placement, signature layout devices.
+**Swap:** colors, copy, photos, logo, icons.
+**Never take:** logos, slogans, taglines, brand names, identity copy, illustrations, photography,
+custom fonts, trademarked shapes. Structure, not identity.
+
+Fail words in a hand-off: "inspired by" · "same vibe" · "layout language" · "close enough".
+
+## Blueprint row (`plan.md`, one per band, filled by `/refs`)
+
+| # | Band + archetype | Measurements | CTA | Do not invent |
+|---|---|---|---|---|
+| 1 | hero — split | media right, 55/45, aspect 4:5, text left-aligned, eyebrow + h1 + 1 line | 2: primary left, secondary text link | no centred hero, no card frame |
+
+**Measurements come from the live page, not from memory.** At `/refs` the agent opens the reference
+with the Playwright MCP and reads: media side and aspect ratio, column split, text alignment,
+caption position, number and order of CTAs, band height class (viewport / tall / short). Two
+practice runs failed every band on the first try because rows said "split hero" and nothing else.
+
+## Per-band check (`/build`)
+
+1. Open the reference screenshots for this band (`brief/refs/<ref>/…-band-N-375.png`, `-1440.png`).
+   Missing → stop; run `/refs` step 4. A shop feature band (`feature — archetype of band N`) uses
+   band N's screenshots (`layer-ecommerce.mdc`).
+2. Read the row aloud: measurements, CTA, Do not invent.
+3. Build with tokens. Screenshot the build at 375 and 1440 with the Playwright MCP.
+4. **Side by side, you compare** the reference PNG and the build PNG per row column. Same structure,
+   different brand? Only then show it. Write the comparison in the hand-off table.
+5. A labelled placeholder (photo not yet delivered) is not a fidelity fail. Note it as content pending.
+
+## Known failures (each shipped once — do not repeat)
+
+| Failure | Fix |
+|---|---|
+| Mood matches, structure does not | same archetype and measurements as the row |
+| Built from memory, PNG not open | open the PNGs first, every time |
+| Dual CTAs stacked at 375, reference keeps them inline | measure the mobile crop too |
+| Gallery at 375 with no next-tile peek | the row must say "peek" when the reference shows it |
+| Captions, aspect, alignment "roughly" right | numbers in the row, not adjectives |
+| Extra band the reference lacks | blueprint bands only |
+
+Story and self-check: `LESSONS.md`.

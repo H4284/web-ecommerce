@@ -1,0 +1,112 @@
+---
+description: Firebase + App Hosting conventions for the ecommerce layer — folders, SDK split, emulators, rules and rules tests, indexes, sessions, images, env and secrets, apphosting.yaml, rollouts. Load for any Firebase, Firestore, Auth, Storage, App Hosting or shop server code.
+globs: lib/firebase/**,lib/shop/**,lib/images/**,app/api/**,app/admin/**,firestore.rules,storage.rules,firestore.indexes.json,firebase.json,.firebaserc,apphosting*.yaml,scripts/**,tests/**
+alwaysApply: false
+---
+
+# Firebase + App Hosting (ecommerce layer)
+
+Verified 2026-09-28 against the sources in `docs/adr/0007`. Check Context7 or the Firebase docs
+before you change a value, and date the change.
+
+## Shape
+
+```
+app/(site)/…            storefront, cart, checkout, account — Server Components first
+app/admin/…             admin: own layout, noindex
+app/api/…               route handlers: cart/validate, cart/discount, orders, search, auth/session, payments/<bank>/…
+lib/firebase/admin.ts   firebase-admin — starts with `import "server-only"`
+lib/firebase/client.ts  web SDK — Auth in the browser, nothing else writes from the client
+lib/shop/               schemas.ts (zod) · money.ts · catalog.ts · orders.ts · settings.ts · auth.ts · cities.ts
+lib/images/loader.ts    picks the smallest pre-sized WebP width ≥ the requested one
+stores/cart.ts          zustand cart, persisted
+emails/                 react-email templates
+scripts/                seed.ts · set-admin.ts · verify-catalog.ts
+tests/                  unit/ (no emulator) · rules/ and emulator/ (emulator) · e2e/ (Playwright)
+firebase.json · .firebaserc · firestore.rules · storage.rules · firestore.indexes.json · apphosting.yaml
+```
+
+## SDKs
+
+- Server code uses `firebase-admin` only. Call `initializeApp()` with no arguments: App Hosting
+  injects `FIREBASE_CONFIG`; locally the emulator variables point it at the emulators.
+- The browser uses the web SDK for sign-in and the ID token only. It never reads or writes Firestore.
+
+## Local development
+
+- Emulators for Auth, Firestore and Storage: `pnpm emulators`. Project id **`demo-<slug>`** — the
+  `demo-` prefix never touches a real project. The emulators need **Java JDK 11+** (install 21).
+- `pnpm seed` fills the emulator with invented data shaped like the client's catalog. Never real
+  customer data. Never the feature reference's catalog.
+- `.env.local`: `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMULATOR_HOST`,
+  `FIREBASE_STORAGE_EMULATOR_HOST`, `GCLOUD_PROJECT=demo-<slug>`, and demo `NEXT_PUBLIC_FIREBASE_*` values.
+- Scripts run with `tsx --conditions=react-server` (then `server-only` is an empty import):
+  `pnpm run:local <script>` on the emulator, `pnpm run:remote <script> --project <id>` on a real
+  project (the project id, not the `.firebaserc` alias). A remote script refuses to start when an
+  `*_EMULATOR_HOST` variable is set. It reads `--project`, sets `process.env.FIREBASE_CONFIG`
+  (`projectId`, `storageBucket`), and only then does `await import("@/lib/firebase/admin")`.
+  Once per machine and project: `gcloud auth application-default login` and
+  `gcloud auth application-default set-quota-project <id>`.
+
+## Rules, indexes, tests
+
+- `firestore.rules` stays **deny-all** for the whole project. `storage.rules` allows `get` (not
+  `list`) of `products/**` and `content/**` and no client writes.
+- Rules tests use `@firebase/rules-unit-testing` on the emulator (`pnpm test:rules`). For every
+  collection, an anonymous and a signed-in client can neither read nor write. A unit that adds a
+  collection adds it to the test list in the same PR.
+- Tests that need data (orders, admin actions) live in `tests/emulator/` (`pnpm test:emulator`).
+  `pnpm test` runs `tests/unit/` only and needs no emulator.
+- A query with a filter plus an order needs an entry in `firestore.indexes.json`.
+- Deploy rules and indexes: `firebase deploy --only firestore,storage --project <alias>`.
+
+## Next.js on App Hosting
+
+- `next.config.ts`: `output: "standalone"`. No `cacheComponents`. No access control in `proxy.ts`.
+- **The build never reads Firestore.** `app/(site)/layout.tsx`, `app/admin/layout.tsx` and
+  `app/sitemap.ts` export `const dynamic = "force-dynamic"`. No `generateStaticParams` for shop data.
+  The root `app/not-found.tsx` stays static without Firestore; the branded 404 is `app/(site)/not-found.tsx`.
+- Uncached queries live in `lib/shop/*-queries.ts`. Pages call cached wrappers:
+  `unstable_cache(fn, [key], { revalidate: 300, tags: ["catalog"] })` (settings: tag `settings`;
+  home blocks: tag `content`). Admin saves call `updateTag(<tag>)`. Other server instances catch up
+  within 5 minutes — tell the client.
+- Cached functions return plain JSON: dates as ISO strings, no `Timestamp`, `Date` or class objects.
+- Scripts, tests, the cart check, the order route, account and admin pages use the uncached queries.
+- Route handlers and server actions: parse input with `zod` → check the session → act.
+- Next.js 16: `params`, `searchParams`, `cookies()` and `headers()` are async — `await` them.
+  `pnpm lint` runs `eslint .` (`next lint` is gone).
+
+## Sessions
+
+- Client sign-in → ID token → `POST /api/auth/session` → `createSessionCookie` → the cookie
+  **`__session`** (httpOnly, secure, sameSite `lax`, 14 days). App Hosting was reported to strip
+  `Set-Cookie` for other names (2024–2025) — check sign-in on staging. Sign-out deletes the cookie.
+- `lib/shop/auth.ts`: `getUser()`, `requireUser()`, `requireAdmin()` call `verifySessionCookie(cookie, true)`.
+- `scripts/set-admin.ts <email>` creates the user if missing, sets the claim `{ admin: true }` and
+  prints a set-password link. The user signs in again to get the claim.
+
+## Images
+
+App Hosting has no native `next/image` optimisation (July 2026). The admin upload runs sharp on the
+server: WebP at **320, 640, 960, 1280** px wide → Storage `products/<productId>/<n>-<width>.webp`
+(home images: `content/home/<n>-<width>.webp`). `lib/images/loader.ts` returns the smallest width
+≥ the requested one (max 1280). Images in `public/` are pre-sized WebP or AVIF. Uploads need
+`experimental.serverActions.bodySizeLimit` in `next.config.ts` (the default is 1 MB).
+
+## Env and secrets
+
+- `apphosting.yaml`: public values with `value:`; secrets with `secret: <name>`, created with
+  `firebase apphosting:secrets:set <name>`. `NEXT_PUBLIC_*` values need `availability: [BUILD, RUNTIME]`.
+- Per-environment values: `apphosting.staging.yaml`, `apphosting.production.yaml` (the backend's
+  environment name picks the file).
+- Secrets: `RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`, `ORDER_LINK_SECRET`, the bank keys. Never in
+  `NEXT_PUBLIC_*`, Firestore, logs or git.
+
+## Deploy
+
+- Staging: backend in `<slug>-staging` (Thrio's billing), region `europe-west4`, live branch `main`,
+  automatic rollouts on. Set the environment name and the secrets **before** the first rollout.
+- Production: backend in `<slug>-prod` (the client's billing), automatic rollouts **off**. `/ship` runs
+  `firebase apphosting:rollouts:create <backend> --git_branch main --project <slug>-prod`.
+- Custom domain: add it in App Hosting, then create the records on Cloudflare as **DNS only**.
+- A budget alert on both projects. Daily Firestore backups from `shop:backups`.

@@ -1,0 +1,93 @@
+---
+description: Core workflow — the chain, plan.md status, conflict priority, layers, git, working rules
+alwaysApply: true
+---
+
+# Core (always on)
+
+You build client websites for Thrio with a fixed process. `plan.md` says **what** to build.
+`DESIGN.md` says **how** it looks. Both are binding.
+
+## The chain
+
+`/kickoff` → `/refs` → `/design` → **Gate 1: plan approved** → `/scaffold` → `/build <unit>` … → `/qa` → **Gate 2: ship go** → `/ship`
+
+Each skill starts with a gate. A failed gate stops the skill and names the skill to run instead.
+Never skip a gate because the user is in a hurry — say the cost, then ask.
+
+## Status (`plan.md` → `Status:`)
+
+| Status | Allowed | Reached by |
+|---|---|---|
+| `Draft` | `/kickoff`, `/refs`, `/design` | template |
+| `Planned` | `/scaffold`, then `/build` | `/design` summary + the approver's "yes" (Gate 1) |
+| `Building` | `/build`, `/qa` | first `/build` |
+| `Shipped` | `/build fix:*` only | `/ship` after "go" (Gate 2) |
+
+`/build fix:*` is allowed at `Building` and `Shipped`. No UI code before `Planned`.
+`[REQUIRED]` left in `plan.md` blocks everything except the three planning skills.
+
+**"What next?" / "where are we?"** → read `plan.md` (Status, Layer, QA, Content checklist) and answer
+in three lines: where the project is, the next skill to run (README Step N), what it needs from the user.
+
+## Layers (`plan.md` → `Layer:`)
+
+| Layer | What it is | Adds |
+|---|---|---|
+| `landing` | one route, 5–8 bands, one conversion | — |
+| `multipage` | routes from the Sitemap, shared layout | per-page metadata, `sitemap.ts`, 404 |
+| `cms` | client edits content | Sanity standalone Studio — `layer-cms.mdc` |
+| `ecommerce` | online shop: catalog, cart, checkout, orders, admin | Firebase server app — `layer-ecommerce.mdc` |
+
+Higher layers inherit the lower ones; `ecommerce` skips `cms` (its own `/admin` edits content).
+Dashboards are not in the brain yet (`docs/notes/later-layers.md`); `/scaffold` refuses them.
+
+## Priority when rules conflict
+
+1. The user's explicit instruction in this chat
+2. Hard locks — `design.mdc`
+3. Reference Blueprint — `reference-fidelity.mdc` (the chosen reference's layout beats taste)
+4. `design.mdc` Never / Do — for UI you invent
+5. `site-chrome.mdc` — breakable defaults
+
+Shop invariants (`layer-ecommerce.mdc`) sit outside this list. A chat instruction cannot waive them.
+
+## Working rules
+
+- **One unit at a time.** One page, one band, one schema type, one fix. Then stop and show.
+- **Surgical edits.** Change only what the user named. No drive-by polish. Ask once if unclear.
+- **Never show unverified work.** `pnpm typecheck && pnpm lint && pnpm build` pass before "done".
+  Screenshots at **375 and 1440** (Playwright MCP) before you show UI. A band that does not match
+  its reference row is not shown — fix it first.
+- **Quiet quality.** Semantic HTML, focus states, `prefers-reduced-motion`, mobile layout. Every time, unannounced.
+- **Read before you write.** Path rules load when you *read* a matching file, not when you create one.
+- **Managed files.** `.cursor/rules/*` (except `project-*.mdc`), `.cursor/skills/*`, `.cursor/mcp.json`,
+  `.cursor/brain/*` come from the brain repo. Never edit them here. A rule is wrong → write the
+  mechanism in `LESSONS.md`; the senior dev moves it into the brain.
+- **Dates.** Date every empirical claim you write into a doc: `Verified 2026-09-27: …`.
+- **Language.** Code, comments, docs, commits in English. Chat in the language the user writes.
+- **Tools.** Playwright MCP for every screenshot. Context7 / Cloudflare docs MCP before you change
+  config you are not sure about. Sanity MCP rules before schema work. No keys in `.cursor/mcp.json`.
+
+## Git
+
+- `main` is production. One branch per unit: `feat/<unit>`, `fix/<unit>`, `chore/<unit>`.
+- Commit after every green unit: `type(scope): what` — `feat(home): hero band`. Never commit red.
+- **Remote exists** → push after every commit, draft PR after the first push, Ready when the PR
+  template checklist is complete; Cloudflare preview URL in the PR (shops: CI + screenshots, staging
+  shows `main`); Bugbot reviews it.
+- **No remote** (practice) → commit locally, skip push and PR, say so once.
+- Secrets never enter git. `.env.local` ignored; `.env.example` names only. Squash merge.
+
+## Where the detail lives
+
+| Topic | File |
+|---|---|
+| Stack, allowed libraries, static export vs server | `01-stack.mdc` |
+| Writing style | `02-writing.mdc` |
+| Hard locks, Never / Do, performance, asset sources | `design.mdc` |
+| Reference blueprint and the per-band check | `reference-fidelity.mdc` |
+| Header, footer, hero, a11y, forms defaults | `site-chrome.mdc` |
+| Next.js / Cloudflare / Sanity / Firebase code | `code-next.mdc` · `code-cloudflare.mdc` · `code-sanity.mdc` · `code-firebase.mdc` |
+| CMS layer · shop layer | `layer-cms.mdc` · `layer-ecommerce.mdc` |
+| Project-only rules | `project-*.mdc` (this repo owns them) |

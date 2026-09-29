@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Next.js static export / Cloudflare
+.next/
+out/
+.wrangler/
+.open-next/
+.dev.vars
+.dev.vars.*
+cloudflare-env.d.ts
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Sanity
+.sanity/
+studio/dist/
+
+# Shop (ecommerce): emulator data, Firebase cache, the bank's confidential integration pack
+.emulator-data/
+.firebase/
+brief/payments/
+
+# QA and build screenshots (reference packs in brief/refs/ ARE committed)
+.qa/
+.tmp-starter/
+
+# Tests / logs / OS
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
