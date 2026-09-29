@@ -246,7 +246,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | # | Unit | Needs | In? | Owner | ClickUp | Status |
 |---|---|---|---|---|---|---|
 | 1 | `shop:catalog-model` | `/scaffold` | yes | | | done |
-| 2 | `shop:catalog-seed` | 1 | yes | | | |
+| 2 | `shop:catalog-seed` | 1 | yes | | | done |
 | 3 | `shop:catalog-data` | 2 | yes | | | |
 | 4 | `shop:settings` | 2 | yes | | | |
 | 5 | `shop:rules-tests` | 3, 4 | yes | | | |
