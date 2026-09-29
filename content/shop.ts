@@ -26,6 +26,7 @@ export const shopCopy = {
   paymentCod: "Para në dorë",
   descriptionHeading: "Përshkrimi",
   categoriesHeading: "Kategoritë",
+  relatedHeading: "Të ngjashme",
   optionLabels: {
     size: "Mililitra",
     concentration: "Përqendrimi",

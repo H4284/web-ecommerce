@@ -4,6 +4,7 @@ import {
   getBrandById,
   getCategoryTree,
   getProductBySlug,
+  getRelated,
 } from "@/lib/shop/catalog";
 import { getShopSettings } from "@/lib/shop/settings";
 import { breadcrumbJsonLd, productJsonLd } from "@/lib/shop/json-ld";
@@ -11,6 +12,7 @@ import { initialSelectionFromSku, variantTitleSuffix } from "@/lib/shop/variants
 import imageLoader from "@/lib/images/loader";
 import { Breadcrumb } from "@/components/shop/breadcrumb";
 import { ProductDescription } from "@/components/shop/product-description";
+import { ProductRelated } from "@/components/shop/product-related";
 import { ProductView } from "@/components/shop/product-view";
 import { site } from "@/content/site";
 import { shopCopy } from "@/content/shop";
@@ -79,11 +81,20 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const [tree, settings, brand] = await Promise.all([
+  const [tree, settings, brand, related] = await Promise.all([
     getCategoryTree(),
     getShopSettings(),
     product.brandId ? getBrandById(product.brandId) : Promise.resolve(null),
+    getRelated(product, 8),
   ]);
+
+  const brandName = brand?.name ?? null;
+  const relatedCards = related
+    .filter((item) => item.id !== product.id)
+    .map((item) => ({
+      product: item,
+      brandName,
+    }));
 
   const kosovo = settings.deliveryMethods.find((m) => m.id === "kosovo" && m.active);
   const cod = settings.paymentMethods.find((m) => m.id === "cod" && m.active);
@@ -177,6 +188,8 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       />
 
       <ProductDescription markdown={product.description} />
+
+      <ProductRelated products={relatedCards} />
     </div>
   );
 }

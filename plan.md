@@ -126,6 +126,7 @@ Handover after launch — domain / Cloudflare / GitHub / Sanity / Firebase owner
 | 2026-09-29 | No customer accounts; admin auth only | Kickoff · guest checkout |
 | 2026-09-29 | `shop:payment-bank` out until Step 0 received | Card off for launch |
 | 2026-09-29 | Related products only (no “also bought” until order data) | Feature take · unit 10 |
+| 2026-09-29 | PDP “Të ngjashme” uses `relatedIds` then same subcategory; no second carousel | unit 10 · Decision above |
 
 ## Out of scope
 
@@ -260,7 +261,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 7 | `shop:category-page` | 6 | yes | | | done |
 | 8 | `shop:brand-page` | 7 | no | | | one brand only |
 | 9 | `shop:product-page` | 4, 6 | yes | | | done |
-| 10 | `shop:product-extras` | 9 | yes | | | related only |
+| 10 | `shop:product-extras` | 9 | yes | | | done · related only |
 | 11 | `shop:search` | 3, shell | yes | | | |
 | 12 | `shop:legal-pages` | shell | yes | | | |
 | 13 | `shop:cart-store` | 1 | yes | | | |
