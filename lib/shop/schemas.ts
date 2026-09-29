@@ -64,6 +64,7 @@ export const productSchema = z.object({
   defaultVariantId: z.string().nullable(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
+  seo: seoSchema.optional(),
 });
 
 export const variantSchema = z.object({

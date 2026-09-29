@@ -1,21 +1,19 @@
 import type { Metadata } from "next";
-import { ProductsTable } from "@/components/admin/products-table";
+import { ProductForm } from "@/components/admin/product-form";
 import { adminCopy } from "@/content/admin";
 import { requireAdmin } from "@/lib/shop/auth";
 import {
   listAdminBrands,
   listAdminCategories,
-  listAdminProducts,
 } from "@/lib/shop/admin-products";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: adminCopy.products };
+export const metadata: Metadata = { title: adminCopy.productNew };
 
-export default async function AdminProductsPage() {
+export default async function AdminNewProductPage() {
   await requireAdmin();
-  const [products, brands, categories] = await Promise.all([
-    listAdminProducts(),
+  const [brands, categories] = await Promise.all([
     listAdminBrands(),
     listAdminCategories(),
   ]);
@@ -23,10 +21,10 @@ export default async function AdminProductsPage() {
   return (
     <div>
       <h1 className="mb-6 font-display text-3xl tracking-display text-ink">
-        {adminCopy.products}
+        {adminCopy.productNew}
       </h1>
-      <ProductsTable
-        products={products}
+      <ProductForm
+        product={null}
         brands={brands.map((b) => ({ id: b.id, name: b.name }))}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
       />
