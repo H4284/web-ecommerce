@@ -10,6 +10,14 @@ import { afterAll, beforeAll, describe, it } from "vitest";
 
 let testEnv: RulesTestEnvironment;
 
+const PATHS = [
+  ["meta", "seed"],
+  ["categories", "women"],
+  ["brands", "sanem"],
+  ["products", "prod-01"],
+  ["settings", "shop"],
+] as const;
+
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: "demo-sanem",
@@ -25,16 +33,25 @@ afterAll(async () => {
   await testEnv.cleanup();
 });
 
-describe("firestore.rules deny-all", () => {
-  it("anonymous cannot read or write meta", async () => {
-    const db = testEnv.unauthenticatedContext().firestore();
-    await assertFails(getDoc(doc(db, "meta", "seed")));
-    await assertFails(setDoc(doc(db, "meta", "seed"), { at: "x" }));
+async function assertNoClientAccess(
+  db: ReturnType<ReturnType<RulesTestEnvironment["unauthenticatedContext"]>["firestore"]>,
+) {
+  for (const [collection, id] of PATHS) {
+    await assertFails(getDoc(doc(db, collection, id)));
+    await assertFails(setDoc(doc(db, collection, id), { probe: true }));
+  }
+  await assertFails(getDoc(doc(db, "products", "prod-01", "variants", "50ml")));
+  await assertFails(
+    setDoc(doc(db, "products", "prod-01", "variants", "50ml"), { stock: 1 }),
+  );
+}
+
+describe("firestore.rules deny-all for shop collections", () => {
+  it("anonymous cannot read or write catalog, settings, variants", async () => {
+    await assertNoClientAccess(testEnv.unauthenticatedContext().firestore());
   });
 
-  it("signed-in cannot read or write meta", async () => {
-    const db = testEnv.authenticatedContext("user-1").firestore();
-    await assertFails(getDoc(doc(db, "meta", "seed")));
-    await assertFails(setDoc(doc(db, "meta", "seed"), { at: "x" }));
+  it("signed-in cannot read or write catalog, settings, variants", async () => {
+    await assertNoClientAccess(testEnv.authenticatedContext("user-1").firestore());
   });
 });
