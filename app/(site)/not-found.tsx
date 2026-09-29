@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { site } from "@/content/site";
 
-export default function NotFound() {
+export default function SiteNotFound() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-lg flex-col items-start justify-center gap-4 px-4">
+    <section className="mx-auto flex min-h-[60dvh] max-w-lg flex-col items-start justify-center gap-4 px-4 py-16">
       <p className="font-display text-sm tracking-display text-accent">404</p>
       <h1 className="font-display text-3xl tracking-display text-ink">
         {site.chrome.notFoundTitle}
@@ -15,6 +15,6 @@ export default function NotFound() {
       >
         {site.chrome.notFoundCta}
       </Link>
-    </main>
+    </section>
   );
 }

@@ -6,8 +6,8 @@ export default function HomePage() {
       <p className="font-display text-4xl tracking-display text-ink">{site.name}</p>
       <p className="text-ink-muted">{site.tagline}</p>
       <p className="text-sm text-ink-muted">
-        Scaffold placeholder. Next:{" "}
-        <code className="text-ink">/build shop:catalog-model</code>
+        Shell placeholder. Next:{" "}
+        <code className="text-ink">/build shop:product-card</code>
       </p>
     </section>
   );

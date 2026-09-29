@@ -14,11 +14,38 @@ export const site = {
   whatsapp: "+38349625317",
   email: null as string | null,
   social: {} as Record<string, string>,
+  /** Secondary links (categories come from Firestore). */
   nav: [
-    { href: "/koleksioni", label: "Koleksioni" },
+    { href: "/koleksioni", label: "Dyqani" },
     { href: "/rreth-nesh", label: "Rreth nesh" },
-    { href: "/kontakt", label: "Kontakt" },
+    { href: "/kontakt", label: "Kontaktoni" },
   ],
+  footer: {
+    categoriesHeading: "Kategoritë",
+    helpHeading: "Ndihma",
+    legalHeading: "Ligjore",
+    helpLinks: [
+      { href: "/dergesa-dhe-kthime", label: "Dorëzimi dhe pagesa" },
+      { href: "/pyetje-te-shpeshta", label: "Pyetje të shpeshta" },
+      { href: "/kontakt", label: "Kontaktoni" },
+    ],
+    legalLinks: [
+      { href: "/privatesia", label: "Privatësia" },
+      { href: "/kushtet", label: "Kushtet" },
+    ],
+  },
+  chrome: {
+    skipToContent: "Kalo te përmbajtja",
+    openMenu: "Hap menunë",
+    closeMenu: "Mbyll menunë",
+    search: "Kërko",
+    searchShortcut: "⌘K",
+    cart: "Shporta",
+    freeDeliveryPrefix: "Transport falas mbi",
+    notFoundTitle: "Faqja nuk u gjet",
+    notFoundBody: "Kjo faqe nuk ekziston ose është zhvendosur.",
+    notFoundCta: "Kthehu në kreun",
+  },
   primaryCta: {
     label: "WhatsApp",
     href: "https://wa.me/38349625317",
