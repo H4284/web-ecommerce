@@ -271,7 +271,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 16 | `shop:checkout-form` | 15 | yes | | | done |
 | 17 | `shop:order-create` | 16 | yes | | | done |
 | 18 | `shop:order-emails` | 17 | yes | | | done |
-| 19 | `shop:thank-you` | 17 | yes | | | |
+| 19 | `shop:thank-you` | 17 | yes | | | done |
 | 20 | `shop:payment-bank` | 17 + Step 0 | no | | | Step 0 not started |
 | 21 | `shop:auth` | shell | yes | | | admin only |
 | 22 | `shop:account-orders` | 17, 21 | no | | | no customer accounts |

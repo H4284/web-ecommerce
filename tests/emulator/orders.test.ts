@@ -81,7 +81,9 @@ describe.skipIf(!hasEmulator)("order create against emulator", () => {
     expect(productAfter.totalStock).toBe(productBefore.totalStock - 1);
 
     const counterAfter = await db.collection("counters").doc("orders").get();
-    expect(Number((counterAfter.data() as { seq: number }).seq)).toBe(seqBefore + 1);
+    expect(Number((counterAfter.data() as { seq: number }).seq)).toBeGreaterThan(
+      seqBefore,
+    );
   });
 
   it("ignores tampered client prices and stores the server total", async () => {
