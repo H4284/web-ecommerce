@@ -16,4 +16,18 @@ export const shopCopy = {
   paginationNext: "Faqja e radhës",
   paginationPage: "Faqja",
   resultCount: "produkte",
+  addToCart: "Shtoje në shportë",
+  addToCartSoon: "Së shpejti — shporta ende nuk është gati.",
+  quantity: "Sasia",
+  deliveryHeading: "Dorëzimi",
+  deliveryFee: "Tarifa e transportit",
+  deliveryFreeOver: "Transport falas mbi",
+  deliveryTime: "Afati",
+  paymentCod: "Para në dorë",
+  descriptionHeading: "Përshkrimi",
+  categoriesHeading: "Kategoritë",
+  optionLabels: {
+    size: "Mililitra",
+    concentration: "Përqendrimi",
+  } as Record<string, string>,
 } as const;

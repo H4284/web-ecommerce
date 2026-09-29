@@ -5,10 +5,13 @@ export function formatCents(cents: number): string {
   if (!Number.isInteger(cents)) {
     throw new Error("formatCents: cents must be an integer");
   }
-  return new Intl.NumberFormat("sq-XK", {
-    style: "currency",
-    currency: "EUR",
-  }).format(cents / 100);
+  const negative = cents < 0;
+  const abs = Math.abs(cents);
+  const whole = Math.floor(abs / 100);
+  const frac = String(abs % 100).padStart(2, "0");
+  // Narrow no-break space before € — same as Intl sq-XK.
+  const body = `${whole},${frac}\u00a0€`;
+  return negative ? `-${body}` : body;
 }
 
 /**

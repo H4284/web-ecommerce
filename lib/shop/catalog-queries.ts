@@ -129,6 +129,14 @@ export async function getBrandBySlug(slug: string): Promise<BrandDoc | null> {
   return parseBrand(doc.id, doc.data());
 }
 
+export async function getBrandById(id: string): Promise<BrandDoc | null> {
+  const snap = await db.collection("brands").doc(id).get();
+  if (!snap.exists) return null;
+  const brand = parseBrand(snap.id, snap.data());
+  if (!brand || !brand.isActive) return null;
+  return brand;
+}
+
 export async function getProductBySlug(slug: string): Promise<ProductWithVariants | null> {
   const snap = await db
     .collection("products")

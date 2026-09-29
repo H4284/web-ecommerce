@@ -27,6 +27,13 @@ export async function getBrandBySlug(slug: string) {
   })();
 }
 
+export async function getBrandById(id: string) {
+  return unstable_cache(() => queries.getBrandById(id), ["catalog", "brand-by-id", id], {
+    revalidate: REVALIDATE,
+    tags: [TAG],
+  })();
+}
+
 export async function getProductBySlug(slug: string) {
   return unstable_cache(() => queries.getProductBySlug(slug), ["catalog", "product-by-slug", slug], {
     revalidate: REVALIDATE,

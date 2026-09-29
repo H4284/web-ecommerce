@@ -259,7 +259,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | — | `home:band-1` … `home:band-5` | 6 | yes | | | band-1–5 done |
 | 7 | `shop:category-page` | 6 | yes | | | done |
 | 8 | `shop:brand-page` | 7 | no | | | one brand only |
-| 9 | `shop:product-page` | 4, 6 | yes | | | |
+| 9 | `shop:product-page` | 4, 6 | yes | | | done |
 | 10 | `shop:product-extras` | 9 | yes | | | related only |
 | 11 | `shop:search` | 3, shell | yes | | | |
 | 12 | `shop:legal-pages` | shell | yes | | | |
