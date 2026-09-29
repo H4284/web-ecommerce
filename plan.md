@@ -268,7 +268,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 13 | `shop:cart-store` | 1 | yes | | | done |
 | 14 | `shop:cart-validate` | 3, 4, 13 | yes | | | done |
 | 15 | `shop:cart-drawer` | 9, 14 | yes | | | done |
-| 16 | `shop:checkout-form` | 15 | yes | | | |
+| 16 | `shop:checkout-form` | 15 | yes | | | done |
 | 17 | `shop:order-create` | 16 | yes | | | |
 | 18 | `shop:order-emails` | 17 | yes | | | |
 | 19 | `shop:thank-you` | 17 | yes | | | |

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { shopCopy } from "@/content/shop";
 import { formatCents } from "@/lib/shop/money";
@@ -28,6 +29,7 @@ export function CartPanel({
   wide = false,
   onContinue,
 }: CartPanelProps) {
+  const searchParams = useSearchParams();
   const lines = useCartStore((s) => s.lines);
   const discountCode = useCartStore((s) => s.discountCode);
   const setDiscountCode = useCartStore((s) => s.setDiscountCode);
@@ -41,6 +43,7 @@ export function CartPanel({
   const discountAmount = result?.discount.amountCents ?? 0;
   const discountMessage = result?.discount.message ?? null;
   const discountFree = result?.discount.freeDelivery ?? false;
+  const emptyFromCheckout = searchParams.get("empty") === "1";
 
   function applyDiscount(e: FormEvent) {
     e.preventDefault();
@@ -54,7 +57,9 @@ export function CartPanel({
         <p className="font-display text-2xl tracking-display text-ink">
           {shopCopy.cartTitle}
         </p>
-        <p className="mt-3 text-ink-muted">{shopCopy.cartEmpty}</p>
+        <p className="mt-3 text-ink-muted">
+          {emptyFromCheckout ? shopCopy.checkoutEmptyRedirect : shopCopy.cartEmpty}
+        </p>
         <Link
           href="/"
           onClick={onContinue}
