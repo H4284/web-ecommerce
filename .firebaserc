@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "demo-sanem",
+    "staging": "sanem-ac70d",
+    "prod": "sanem-prod"
+  }
+}

@@ -1,0 +1,13 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 1024
+env:
+  - variable: RESEND_API_KEY
+    secret: resendApiKey
+  - variable: TURNSTILE_SECRET_KEY
+    secret: turnstileSecretKey
+  - variable: ORDER_LINK_SECRET
+    secret: orderLinkSecret
