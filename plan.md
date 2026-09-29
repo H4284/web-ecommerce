@@ -60,7 +60,7 @@ likes: ⚠️ CONFIRM WITH CLIENT · must **not** look like: ⚠️ CONFIRM WITH
 
 Reference site: Nymphai Cosmetics · https://nymphaicosmetics.com · screenshots: `brief/refs/nymphai-cosmetics/` · grammar to keep: 50/50 media splits, centred brand moments, product cutout slides, calm type hierarchy
 
-Verified 2026-09-29 from the live page at **1440** and **375**.
+Verified 2026-09-29 from the live page at **1440** and **375**. Screenshot pack re-captured the same day into `brief/refs/nymphai-cosmetics/` (home full + bands 1–5).
 
 | # | Band + archetype | Measurements (side, aspect, split, alignment, captions, mobile) | CTA | Do not invent |
 |---|---|---|---|---|
