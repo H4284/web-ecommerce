@@ -5,6 +5,8 @@ import { useEffect, useRef } from "react";
 type TurnstileWidgetProps = {
   onToken: (token: string) => void;
   onExpire?: () => void;
+  /** Increment to reset the widget after a failed submit. */
+  resetSignal?: number;
 };
 
 declare global {
@@ -30,7 +32,11 @@ declare global {
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 /** Cloudflare Turnstile (explicit render). Stub token when the site key is missing. */
-export function TurnstileWidget({ onToken, onExpire }: TurnstileWidgetProps) {
+export function TurnstileWidget({
+  onToken,
+  onExpire,
+  resetSignal = 0,
+}: TurnstileWidgetProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const onTokenRef = useRef(onToken);
@@ -88,6 +94,18 @@ export function TurnstileWidget({ onToken, onExpire }: TurnstileWidgetProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!resetSignal) return;
+    if (!SITE_KEY) {
+      onTokenRef.current("dev-turnstile-token");
+      return;
+    }
+    if (widgetId.current && window.turnstile) {
+      window.turnstile.reset(widgetId.current);
+      onTokenRef.current("");
+    }
+  }, [resetSignal]);
 
   if (!SITE_KEY) {
     return (

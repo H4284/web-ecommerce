@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Controller,
   useForm,
@@ -11,6 +11,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { shopCopy } from "@/content/shop";
 import {
   CHECKOUT_DRAFT_KEY,
@@ -23,6 +24,7 @@ import type { DeliveryMethod, PaymentMethod } from "@/lib/shop/settings-schema";
 import { CityCombobox } from "@/components/shop/city-combobox";
 import { CheckoutSummary } from "@/components/shop/checkout-summary";
 import { TurnstileWidget } from "@/components/shop/turnstile-widget";
+import { useCartStore } from "@/stores/cart";
 import { cn } from "cn";
 
 type CheckoutFormProps = {
@@ -167,6 +169,14 @@ export function CheckoutForm({
   paymentMethods,
   freeOverCents,
 }: CheckoutFormProps) {
+  const router = useRouter();
+  const lines = useCartStore((s) => s.lines);
+  const discountCode = useCartStore((s) => s.discountCode);
+  const clearCart = useCartStore((s) => s.clear);
+  const setQty = useCartStore((s) => s.setQty);
+  const [submitting, setSubmitting] = useState(false);
+  const [turnstileReset, setTurnstileReset] = useState(0);
+
   const activeDelivery = useMemo(
     () => deliveryMethods.filter((m) => m.active),
     [deliveryMethods],
@@ -256,10 +266,72 @@ export function CheckoutForm({
     return () => sub.unsubscribe();
   }, [watch]);
 
-  function onSubmit(values: CheckoutFormValues) {
-    // Unit 17 wires POST /api/orders. Validate + normalize only for now.
-    toNormalizedCheckoutPayload(values);
-    toast.message(shopCopy.checkoutSubmitSoon);
+  async function onSubmit(values: CheckoutFormValues) {
+    if (submitting) return;
+    setSubmitting(true);
+    const payload = {
+      ...toNormalizedCheckoutPayload(values),
+      website: values.website ?? "",
+      lines: lines.map((l) => ({
+        variantId: l.variantId,
+        productId: l.productId,
+        qty: l.qty,
+      })),
+      discountCode,
+    };
+
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 200) {
+        const data = (await res.json()) as {
+          orderId: string;
+          number: string;
+          thankYouUrl: string;
+        };
+        clearCart();
+        try {
+          sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+        } catch {
+          // ignore
+        }
+        toast.success(shopCopy.checkoutSuccess);
+        router.push(data.thankYouUrl);
+        return;
+      }
+
+      if (res.status === 409) {
+        const conflict = (await res.json()) as {
+          sku?: string;
+          available?: number;
+          message?: string;
+        };
+        if (conflict.sku != null && typeof conflict.available === "number") {
+          const line = lines.find((l) => l.sku === conflict.sku);
+          if (line && conflict.available > 0) {
+            setQty(line.variantId, conflict.available);
+          } else if (line && conflict.available === 0) {
+            useCartStore.getState().remove(line.variantId);
+          }
+        }
+        toast.error(conflict.message ?? shopCopy.checkoutStockConflict);
+      } else {
+        toast.error(shopCopy.checkoutRetry);
+      }
+
+      setValue("turnstileToken", "");
+      setTurnstileReset((n) => n + 1);
+    } catch {
+      toast.error(shopCopy.checkoutRetry);
+      setValue("turnstileToken", "");
+      setTurnstileReset((n) => n + 1);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -426,6 +498,7 @@ export function CheckoutForm({
 
         <div>
           <TurnstileWidget
+            resetSignal={turnstileReset}
             onToken={(token) =>
               setValue("turnstileToken", token, { shouldValidate: true })
             }
@@ -440,9 +513,10 @@ export function CheckoutForm({
 
         <button
           type="submit"
-          className="min-h-11 bg-ink px-5 text-sm font-medium text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          disabled={submitting}
+          className="min-h-11 bg-ink px-5 text-sm font-medium text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
         >
-          {shopCopy.checkoutSubmit}
+          {submitting ? shopCopy.checkoutSubmitting : shopCopy.checkoutSubmit}
         </button>
       </form>
 
