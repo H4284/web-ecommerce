@@ -24,25 +24,38 @@ async function writePlaceholderImages(productId: string, color: string) {
   const r = Number.parseInt(base.slice(0, 2), 16);
   const g = Number.parseInt(base.slice(2, 4), 16);
   const b = Number.parseInt(base.slice(4, 6), 16);
-
-  for (const width of SEED_WIDTHS) {
-    const buffer = await sharp({
-      create: {
-        width,
-        height: Math.round(width * 1.25),
-        channels: 3,
-        background: { r, g, b },
+  const frames = [
+    { n: 0, background: { r, g, b } },
+    {
+      n: 1,
+      background: {
+        r: Math.min(255, r + 28),
+        g: Math.min(255, g + 18),
+        b: Math.min(255, b + 12),
       },
-    })
-      .webp({ quality: 80 })
-      .toBuffer();
+    },
+  ] as const;
 
-    const path = `products/${productId}/0-${width}.webp`;
-    await bucket.file(path).save(buffer, {
-      contentType: "image/webp",
-      resumable: false,
-      metadata: { cacheControl: "public, max-age=31536000" },
-    });
+  for (const frame of frames) {
+    for (const width of SEED_WIDTHS) {
+      const buffer = await sharp({
+        create: {
+          width,
+          height: Math.round(width * 1.25),
+          channels: 3,
+          background: frame.background,
+        },
+      })
+        .webp({ quality: 80 })
+        .toBuffer();
+
+      const path = `products/${productId}/${frame.n}-${width}.webp`;
+      await bucket.file(path).save(buffer, {
+        contentType: "image/webp",
+        resumable: false,
+        metadata: { cacheControl: "public, max-age=31536000" },
+      });
+    }
   }
 }
 
@@ -81,7 +94,10 @@ async function main() {
 
     const productDoc = productSchema.parse({
       ...item.product,
-      images: [{ path: `products/${item.id}/0`, alt: item.imageAlt }],
+      images: [
+        { path: `products/${item.id}/0`, alt: item.imageAlt },
+        { path: `products/${item.id}/1`, alt: `${item.imageAlt} — detail` },
+      ],
       searchTokens: [],
       minPriceCents: 0,
       maxPriceCents: 0,
