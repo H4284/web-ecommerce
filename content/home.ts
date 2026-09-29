@@ -72,3 +72,25 @@ export const homeProducts = {
   ctaLabel: "Eksploro",
   cutoutPendingAlt: "Shishe parfumi — në pritje",
 } as const;
+
+/** Band 5 — three trust pillars; expand one at a time. */
+export const homeTrust = {
+  label: "Pse Sanem",
+  pillars: [
+    {
+      id: "prishtine",
+      title: "Prodhim në Prishtinë",
+      body: "Çdo erë lind këtu, me kujdes dhe me kohë. Parfume të përzgjedhura për lëkurën dhe për ritualin e përditshëm — quiet luxury, pa zhurmë.",
+    },
+    {
+      id: "notes",
+      title: "Nota që qëndrojnë",
+      body: "Hapje e butë, zemër e qartë, bazë që rifloron. Formuluar që të qëndrojë me ty gjatë ditës, jo vetëm në shishe.",
+    },
+    {
+      id: "delivery",
+      title: "Blerje pa stres",
+      body: "Para në dorëzim në Kosovë. Transport falas mbi 50,00 €. Paketim i qetë, gati për dhuratë ose për ty.",
+    },
+  ],
+} as const;

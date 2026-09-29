@@ -6,6 +6,7 @@ import { BrandCollage } from "@/components/home/brand-collage";
 import { HeroSlideshow } from "@/components/home/hero-slideshow";
 import { ProductSlides } from "@/components/home/product-slides";
 import { StoryManifesto } from "@/components/home/story-manifesto";
+import { TrustAccordion } from "@/components/home/trust-accordion";
 
 export default async function HomePage() {
   let products: ProductDoc[] = [];
@@ -38,6 +39,7 @@ export default async function HomePage() {
       <BrandCollage tiles={collageTiles} />
       <StoryManifesto />
       <ProductSlides slides={productSlides} />
+      <TrustAccordion />
     </>
   );
 }
