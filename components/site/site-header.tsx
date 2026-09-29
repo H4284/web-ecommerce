@@ -8,10 +8,9 @@ import { MobileNav } from "@/components/site/mobile-nav";
 
 type SiteHeaderProps = {
   categories: NavCategory[];
-  cartCount?: number;
 };
 
-export function SiteHeader({ categories, cartCount = 0 }: SiteHeaderProps) {
+export function SiteHeader({ categories }: SiteHeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-sm">
       <div className="mx-auto flex h-[var(--header-height)] max-w-6xl items-center gap-4 px-4">
@@ -27,7 +26,7 @@ export function SiteHeader({ categories, cartCount = 0 }: SiteHeaderProps) {
         </div>
         <div className="ml-auto flex items-center gap-1">
           <SearchDialog />
-          <CartButton count={cartCount} />
+          <CartButton />
         </div>
       </div>
     </header>

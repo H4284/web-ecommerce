@@ -21,6 +21,7 @@ import type { DeliveryMethod } from "@/lib/shop/settings-schema";
 export type ValidatedCartLine = {
   variantId: string;
   productId: string;
+  productSlug: string;
   sku: string;
   name: string;
   variantLabel: string;
@@ -118,6 +119,7 @@ export async function validateCart(input: {
     lines.push({
       variantId: variant.id,
       productId: product.id,
+      productSlug: product.slug,
       sku: variant.sku,
       name: product.name,
       variantLabel: variantLabel(product.options, variant),

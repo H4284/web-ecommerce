@@ -1,10 +1,13 @@
 import { getCategoryTree } from "@/lib/shop/catalog";
 import { getShopSettings } from "@/lib/shop/settings";
 import { categoryNavItems } from "@/lib/shop/nav";
+import { CartDrawer } from "@/components/shop/cart-drawer";
+import { CartUiProvider } from "@/components/shop/cart-ui";
 import { FreeDeliveryBar } from "@/components/site/free-delivery-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { SkipLink } from "@/components/site/skip-link";
+import { Toaster } from "@/components/ui/sonner";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +29,18 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const { categories, freeOverCents } = await loadChrome();
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <SkipLink />
-      <FreeDeliveryBar freeOverCents={freeOverCents} />
-      <SiteHeader categories={categories} cartCount={0} />
-      <main id="main" className="flex-1">
-        {children}
-      </main>
-      <SiteFooter categories={categories} />
-    </div>
+    <CartUiProvider freeOverCents={freeOverCents}>
+      <div className="flex min-h-dvh flex-col">
+        <SkipLink />
+        <FreeDeliveryBar freeOverCents={freeOverCents} />
+        <SiteHeader categories={categories} />
+        <main id="main" className="flex-1">
+          {children}
+        </main>
+        <SiteFooter categories={categories} />
+      </div>
+      <CartDrawer />
+      <Toaster position="bottom-center" />
+    </CartUiProvider>
   );
 }

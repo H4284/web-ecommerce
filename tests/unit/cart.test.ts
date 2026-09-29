@@ -11,6 +11,7 @@ import {
 function line(partial: Partial<CartLine> & Pick<CartLine, "variantId">): CartLine {
   return {
     productId: "prod-01",
+    productSlug: "qelibar",
     sku: `SKU-${partial.variantId}`,
     name: "Qelibar",
     variantLabel: "50 ml",

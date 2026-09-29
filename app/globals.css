@@ -195,3 +195,15 @@
 .trust-pillar[open] .trust-pillar-body {
   animation: trust-fade var(--duration-fast) var(--ease-out);
 }
+
+@keyframes cart-count-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 export type CartLine = {
   variantId: string;
   productId: string;
+  productSlug: string;
   sku: string;
   name: string;
   variantLabel: string;
@@ -107,6 +108,7 @@ export const useCartStore = create<CartState>()(
               {
                 variantId: input.variantId,
                 productId: input.productId,
+                productSlug: input.productSlug,
                 sku: input.sku,
                 name: input.name,
                 variantLabel: input.variantLabel,

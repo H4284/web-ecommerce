@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import type { ProductDoc, VariantDoc } from "@/lib/shop/catalog-queries";
 import type { ProductOption, ProductUnit } from "@/lib/shop/schemas";
 import {
   findVariant,
   initialSelectionFromSku,
   type OptionSelection,
+  variantLabel,
   variantTitleSuffix,
 } from "@/lib/shop/variants";
 import { DeliveryBox } from "@/components/shop/delivery-box";
@@ -15,7 +17,9 @@ import { Price } from "@/components/shop/price";
 import { ProductGallery } from "@/components/shop/product-gallery";
 import { StockBadge } from "@/components/shop/stock-badge";
 import { VariantSelector } from "@/components/shop/variant-selector";
+import { useCartUi } from "@/components/shop/cart-ui";
 import { shopCopy } from "@/content/shop";
+import { useCartStore } from "@/stores/cart";
 
 export type ProductCategoryLink = {
   name: string;
@@ -62,6 +66,9 @@ export function ProductView({
 
   const [selection, setSelection] = useState<OptionSelection>(boot.selection);
   const [qty, setQty] = useState(1);
+  const [adding, setAdding] = useState(false);
+  const add = useCartStore((s) => s.add);
+  const { openCart } = useCartUi();
 
   const variant = useMemo(
     () => findVariant(variants, selection, optionNames),
@@ -94,6 +101,33 @@ export function ProductView({
   function onOptionChange(optionName: string, value: string) {
     const next = { ...selection, [optionName]: value };
     setSelection(next);
+  }
+
+  function onAddToCart() {
+    if (!variant || adding) return;
+    const maxQty = Math.min(99, Math.max(0, variant.stock));
+    if (maxQty <= 0) return;
+
+    setAdding(true);
+    try {
+      add({
+        variantId: variant.id,
+        productId: product.id,
+        productSlug: product.slug,
+        sku: variant.sku,
+        name: product.name,
+        variantLabel: variantLabel(options, variant),
+        imagePath: variant.image?.path ?? product.images[0]?.path ?? null,
+        priceCents: variant.priceCents,
+        compareAtCents: variant.compareAtCents ?? null,
+        maxQty,
+        qty,
+      });
+      toast.success(shopCopy.addToCartToast);
+      openCart();
+    } finally {
+      setAdding(false);
+    }
   }
 
   const activeImage =
@@ -156,16 +190,14 @@ export function ProductView({
             />
           </label>
 
-          <div className="flex min-w-[12rem] flex-1 flex-col gap-1">
-            <button
-              type="button"
-              disabled
-              className="min-h-11 bg-ink px-5 text-sm font-medium text-on-accent opacity-50"
-            >
-              {shopCopy.addToCart}
-            </button>
-            <p className="text-xs text-ink-muted">{shopCopy.addToCartSoon}</p>
-          </div>
+          <button
+            type="button"
+            disabled={!inStock || !variant || adding}
+            onClick={onAddToCart}
+            className="min-h-11 min-w-[12rem] flex-1 bg-ink px-5 text-sm font-medium text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+          >
+            {adding ? shopCopy.addToCartAdding : shopCopy.addToCart}
+          </button>
         </div>
 
         <DeliveryBox
