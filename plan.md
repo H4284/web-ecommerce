@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | `Planned` |
+| Status | `Building` |
 | Layer | `ecommerce` |
 | QA | — |
 | Updated | 2026-09-29 |
@@ -245,7 +245,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 
 | # | Unit | Needs | In? | Owner | ClickUp | Status |
 |---|---|---|---|---|---|---|
-| 1 | `shop:catalog-model` | `/scaffold` | yes | | | |
+| 1 | `shop:catalog-model` | `/scaffold` | yes | | | done |
 | 2 | `shop:catalog-seed` | 1 | yes | | | |
 | 3 | `shop:catalog-data` | 2 | yes | | | |
 | 4 | `shop:settings` | 2 | yes | | | |
