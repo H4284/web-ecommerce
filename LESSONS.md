@@ -27,4 +27,4 @@ Details: `.cursor/rules/reference-fidelity.mdc`.
 
 | Date | Shipped | Why it failed | Hard stop |
 |---|---|---|---|
-| | | | |
+| 2026-09-29 | `scripts/seed.ts` top-level await | tsx on Windows uses CJS → transform error | wrap seeds in `async function main()` |
