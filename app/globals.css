@@ -78,10 +78,16 @@
   --promo-bar-height: 2.25rem;
   --site-top-offset: calc(var(--header-height) + var(--promo-bar-height));
 
+  /* Home band 2 — Nymphai collage measurements */
+  --band-collage-height: 140.625rem;
+  --band-collage-height-mobile: 126.875rem;
+  --collage-tile-width: 9rem;
+
   /* Motion */
   --duration-fast: 180ms;
   --duration-base: 320ms;
   --duration-slow: 700ms;
+  --duration-drift: 8s;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
 }
@@ -95,5 +101,52 @@
   }
   body {
     @apply bg-surface text-ink;
+  }
+}
+
+@keyframes collage-float-a {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0.75rem, 0);
+  }
+}
+
+@keyframes collage-float-b {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0.5rem, -0.5rem, 0);
+  }
+}
+
+@keyframes collage-float-c {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-0.35rem, 0.5rem, 0);
+  }
+}
+
+.collage-drift-a {
+  animation: collage-float-a var(--duration-drift) var(--ease-in-out) infinite alternate;
+}
+
+.collage-drift-b {
+  animation: collage-float-b calc(var(--duration-drift) * 1.15) var(--ease-in-out) infinite alternate;
+}
+
+.collage-drift-c {
+  animation: collage-float-c calc(var(--duration-drift) * 0.9) var(--ease-in-out) infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collage-drift-a,
+  .collage-drift-b,
+  .collage-drift-c {
+    animation: none;
   }
 }
