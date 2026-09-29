@@ -1,14 +1,20 @@
-import { site } from "@/content/site";
+import { getNewProducts } from "@/lib/shop/catalog";
+import { buildHeroSlides } from "@/lib/shop/hero-slides";
+import { HeroSlideshow } from "@/components/home/hero-slideshow";
 
-export default function HomePage() {
+export default async function HomePage() {
+  let products: Awaited<ReturnType<typeof getNewProducts>> = [];
+  try {
+    products = await getNewProducts(3);
+  } catch (err) {
+    console.error("[home] hero products unavailable:", err);
+  }
+
+  const slides = buildHeroSlides(products);
+
   return (
-    <section className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-16">
-      <p className="font-display text-4xl tracking-display text-ink">{site.name}</p>
-      <p className="text-ink-muted">{site.tagline}</p>
-      <p className="text-sm text-ink-muted">
-        Shell placeholder. Next:{" "}
-        <code className="text-ink">/build shop:product-card</code>
-      </p>
-    </section>
+    <>
+      <HeroSlideshow slides={slides} />
+    </>
   );
 }

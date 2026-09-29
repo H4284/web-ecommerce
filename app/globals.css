@@ -75,6 +75,8 @@
   /* Chrome */
   --hero-min-height: 100vh;
   --header-height: 4.5rem;
+  --promo-bar-height: 2.25rem;
+  --site-top-offset: calc(var(--header-height) + var(--promo-bar-height));
 
   /* Motion */
   --duration-fast: 180ms;
