@@ -6,11 +6,13 @@ import {
   SESSION_MAX_AGE_SEC,
 } from "@/lib/shop/auth-types";
 import { ensureUserDoc } from "@/lib/shop/ensure-user";
+import { verifyTurnstile } from "@/lib/shop/turnstile";
 
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   idToken: z.string().min(1),
+  turnstileToken: z.string().min(1),
 });
 
 export async function POST(request: Request) {
@@ -21,9 +23,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  const raw = json as { website?: string };
+  // Honeypot first — pretend success, no work.
+  if (typeof raw.website === "string" && raw.website.length > 0) {
+    return NextResponse.json({ ok: true });
+  }
+
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+  }
+
+  const turnstileOk = await verifyTurnstile(parsed.data.turnstileToken);
+  if (!turnstileOk) {
+    return NextResponse.json({ error: "turnstile" }, { status: 400 });
   }
 
   try {

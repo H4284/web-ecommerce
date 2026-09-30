@@ -1,9 +1,18 @@
 import type { NextConfig } from "next";
+import { securityHeaderList } from "./lib/shop/security-headers";
 
 const nextConfig: NextConfig = {
   output: "standalone",
   images: { loader: "custom", loaderFile: "./lib/images/loader.ts" },
   experimental: { serverActions: { bodySizeLimit: "11mb" } },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: securityHeaderList(),
+      },
+    ];
+  },
   async redirects() {
     return [
       // Plan routes → implemented paths (no old public site; aliases only).

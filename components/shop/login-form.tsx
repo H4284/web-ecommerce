@@ -13,10 +13,12 @@ import {
   loginFormSchema,
   type LoginFormValues,
 } from "@/lib/shop/auth-schema";
+import { TurnstileWidget } from "@/components/shop/turnstile-widget";
 import { cn } from "cn";
 
 function fieldMessage(code: string | undefined): string {
   if (code === "email") return shopCopy.fieldEmail;
+  if (code === "turnstile") return shopCopy.fieldTurnstile;
   return shopCopy.fieldRequired;
 }
 
@@ -25,14 +27,21 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const next = safeNextPath(searchParams.get("next"), "/account");
   const [formError, setFormError] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: {
+      email: "",
+      password: "",
+      turnstileToken: "",
+      website: "",
+    },
   });
 
   async function onSubmit(values: LoginFormValues) {
@@ -47,10 +56,15 @@ export function LoginForm() {
       const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
+        body: JSON.stringify({
+          idToken,
+          turnstileToken: values.turnstileToken,
+          website: values.website ?? "",
+        }),
       });
       if (!res.ok) {
         setFormError(shopCopy.authGenericError);
+        setTurnstileReset((n) => n + 1);
         return;
       }
       router.replace(next);
@@ -70,6 +84,7 @@ export function LoginForm() {
       } else {
         setFormError(shopCopy.authGenericError);
       }
+      setTurnstileReset((n) => n + 1);
     }
   }
 
@@ -79,6 +94,16 @@ export function LoginForm() {
       className="mx-auto flex w-full max-w-md flex-col gap-4"
       noValidate
     >
+      {/* Honeypot */}
+      <input
+        type="text"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden
+        className="absolute -left-[9999px] h-0 w-0 opacity-0"
+        {...register("website")}
+      />
+
       <label className="flex flex-col gap-1 text-sm">
         <span>{shopCopy.authEmail}</span>
         <input
@@ -114,6 +139,21 @@ export function LoginForm() {
           </span>
         ) : null}
       </label>
+
+      <div>
+        <TurnstileWidget
+          resetSignal={turnstileReset}
+          onToken={(token) =>
+            setValue("turnstileToken", token, { shouldValidate: true })
+          }
+          onExpire={() => setValue("turnstileToken", "")}
+        />
+        {errors.turnstileToken ? (
+          <span className="mt-1 block text-xs text-danger" role="alert">
+            {fieldMessage(errors.turnstileToken.message)}
+          </span>
+        ) : null}
+      </div>
 
       {formError ? (
         <p className="text-sm text-danger" role="alert">

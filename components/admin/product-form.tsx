@@ -353,7 +353,7 @@ export function ProductForm({ product, brands, categories }: ProductFormProps) {
         <div className="flex flex-col gap-1 text-sm">
           <span>{adminCopy.productPreview}</span>
           <div className="prose prose-sm max-w-none border border-border bg-surface p-3 text-ink">
-            <ReactMarkdown>{description || "—"}</ReactMarkdown>
+            <ReactMarkdown skipHtml>{description || "—"}</ReactMarkdown>
           </div>
         </div>
       </div>
