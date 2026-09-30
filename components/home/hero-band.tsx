@@ -1,5 +1,6 @@
 import type { HeroSlide } from "@/lib/shop/hero-slides";
 import { heroLcpUrl } from "@/lib/shop/hero-lcp";
+import { site } from "@/content/site";
 import { HeroSlideshow } from "@/components/home/hero-slideshow";
 
 type HeroBandProps = {
@@ -20,6 +21,10 @@ export function HeroBand({ slides }: HeroBandProps) {
       className="relative h-[calc(100dvh-var(--site-top-offset))] min-h-[calc(100dvh-var(--site-top-offset))] w-full overflow-hidden bg-ink"
       aria-label="Hero"
     >
+      {/* Page title — visually hidden so the Nymphai split hero stays image-led. */}
+      <h1 className="sr-only">
+        {site.name}. {site.tagline}
+      </h1>
       {lcpHref && image ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- LCP must be a plain img in the server HTML */}

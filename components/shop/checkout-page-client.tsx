@@ -40,7 +40,10 @@ export function CheckoutPageClient({
   if (!ready) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-16 text-center text-ink-muted">
-        {shopCopy.checkoutTitle}…
+        <h1 className="font-display text-3xl tracking-display text-ink md:text-4xl">
+          {shopCopy.checkoutTitle}
+        </h1>
+        <p className="mt-4">{shopCopy.checkoutTitle}…</p>
       </div>
     );
   }
