@@ -282,7 +282,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 27 | `shop:admin-taxonomy` | 24 | yes | | | done |
 | 28 | `shop:admin-orders` | 18, 24 | yes | | | done |
 | 29 | `shop:admin-discounts` | 14, 24 | yes | | | done |
-| 30 | `shop:admin-content` | 24, 26 | yes | | | hero · promo |
+| 30 | `shop:admin-content` | 24, 26 | yes | | | done |
 | 31 | `shop:admin-dashboard` | 28 | yes | | | |
 | 32 | `shop:analytics` | 19 | no | | | no GA4 / Pixel |
 | 33 | `shop:seo` | 9 | yes | | | |
