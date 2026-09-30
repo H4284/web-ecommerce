@@ -94,7 +94,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 
       <Breadcrumb items={crumbItems} className="mb-[var(--space-5)]" />
 
-      <header className="mb-[var(--space-8)] flex flex-col gap-[var(--space-5)]">
+      <div className="mb-[var(--space-8)] flex flex-col gap-[var(--space-5)]">
         <h1 className="font-display text-3xl tracking-display text-ink md:text-4xl">
           {category.name}
         </h1>
@@ -105,7 +105,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
           </p>
           <ProductSortSelect slug={category.slug} sort={sort} />
         </div>
-      </header>
+      </div>
 
       {listing.items.length === 0 ? (
         <p className="py-[var(--space-12)] text-center text-ink-muted">

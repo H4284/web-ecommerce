@@ -28,7 +28,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-[var(--space-section)] md:px-6">
-      <header className="mb-[var(--space-8)] flex flex-col gap-3">
+      <div className="mb-[var(--space-8)] flex flex-col gap-3">
         <h1 className="font-display text-3xl tracking-display text-ink md:text-4xl">
           {shopCopy.searchPageTitle}
         </h1>
@@ -39,7 +39,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
         ) : (
           <p className="text-sm text-ink-muted">{shopCopy.searchHint}</p>
         )}
-      </header>
+      </div>
 
       {canSearch && products.length > 0 ? (
         <ul className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">

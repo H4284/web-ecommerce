@@ -4,7 +4,6 @@ import { getCategoryTree } from "@/lib/shop/catalog";
 import { getShopSettings } from "@/lib/shop/settings";
 import { categoryNavItems } from "@/lib/shop/nav";
 import { CartUiProvider } from "@/components/shop/cart-ui";
-import { FreeDeliveryBar } from "@/components/site/free-delivery-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { SkipLink } from "@/components/site/skip-link";
@@ -48,8 +47,11 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <CartUiProvider freeOverCents={freeOverCents}>
       <div className="flex min-h-dvh flex-col">
         <SkipLink />
-        <FreeDeliveryBar freeOverCents={freeOverCents} />
-        <SiteHeader categories={categories} user={user} />
+        <SiteHeader
+          categories={categories}
+          user={user}
+          freeOverCents={freeOverCents}
+        />
         <main id="main" className="flex-1">
           {children}
         </main>

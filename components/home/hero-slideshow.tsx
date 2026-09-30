@@ -93,6 +93,7 @@ export function HeroSlideshow({
   return (
     <div
       className="absolute inset-0"
+      role="region"
       aria-roledescription="carousel"
       aria-label="Hero slides"
     >

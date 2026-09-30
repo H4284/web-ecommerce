@@ -360,7 +360,7 @@ export function CheckoutForm({
           </label>
         </div>
 
-        <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-sm">
             <span>{shopCopy.checkoutEmail}</span>
             <input
@@ -406,9 +406,9 @@ export function CheckoutForm({
               />
             </div>
           ) : null}
-        </section>
+        </div>
 
-        <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           <p className="text-sm font-medium text-ink">
             {shopCopy.checkoutDeliveryMethod}
           </p>
@@ -430,9 +430,9 @@ export function CheckoutForm({
               </label>
             ))}
           </div>
-        </section>
+        </div>
 
-        <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           <p className="text-sm font-medium text-ink">
             {shopCopy.checkoutPaymentMethod}
           </p>
@@ -459,7 +459,7 @@ export function CheckoutForm({
               </label>
             ))}
           </div>
-        </section>
+        </div>
 
         <label className="flex items-start gap-3 text-sm text-ink">
           <input

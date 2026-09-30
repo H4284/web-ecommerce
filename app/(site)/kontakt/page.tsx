@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default function KontaktPage() {
   return (
     <article className="mx-auto w-full max-w-2xl px-4 py-[var(--space-section)] md:px-6">
-      <header className="text-center">
+      <div className="text-center">
         <p className="font-display text-sm tracking-display text-accent">{site.name}</p>
         <h1 className="mt-3 font-display text-3xl tracking-display text-ink md:text-4xl">
           {kontakt.title}
@@ -26,7 +26,7 @@ export default function KontaktPage() {
         <p className="mx-auto mt-4 max-w-prose text-base leading-relaxed text-ink-muted md:text-lg">
           {kontakt.intro}
         </p>
-      </header>
+      </div>
 
       <div className="mx-auto mt-10 flex max-w-sm flex-col items-center gap-8 text-center">
         <dl className="w-full space-y-6 text-sm">

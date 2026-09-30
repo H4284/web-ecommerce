@@ -45,6 +45,7 @@ export function ProductSlides({ slides }: ProductSlidesProps) {
   return (
     <section
       className="bg-surface-2"
+      role="region"
       aria-roledescription="carousel"
       aria-label="Produkte"
     >

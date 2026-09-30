@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export default function FaqPage() {
   return (
     <article className="mx-auto w-full max-w-2xl px-4 py-[var(--space-section)] md:px-6">
-      <header className="text-center">
+      <div className="text-center">
         <p className="font-display text-sm tracking-display text-accent">{site.name}</p>
         <h1 className="mt-3 font-display text-3xl tracking-display text-ink md:text-4xl">
           {faq.title}
@@ -27,7 +27,7 @@ export default function FaqPage() {
         <p className="mx-auto mt-4 max-w-prose text-base leading-relaxed text-ink-muted md:text-lg">
           {faq.intro}
         </p>
-      </header>
+      </div>
 
       <div className="mt-12 border-t border-border">
         {faq.items.map((item, index) => (
