@@ -8,7 +8,8 @@ const display = Cormorant_Garamond({
   subsets: ["latin", "latin-ext"],
   weight: ["400"],
   variable: "--font-cormorant",
-  display: "swap",
+  // optional: avoid a late font swap becoming LCP under mobile throttle
+  display: "optional",
 });
 
 const body = Source_Sans_3({

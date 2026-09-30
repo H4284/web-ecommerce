@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { getNewProducts } from "@/lib/shop/catalog";
 import type { ProductDoc } from "@/lib/shop/catalog-queries";
 import { getHomeContent } from "@/lib/shop/home-content";
+import { heroLcpUrl } from "@/lib/shop/hero-lcp";
 import {
   buildHeroSlides,
   buildHeroSlidesFromContent,
@@ -11,12 +13,27 @@ import { getShopSettings } from "@/lib/shop/settings";
 import { absoluteUrl, siteUrl } from "@/lib/shop/site-url";
 import { homeBrand } from "@/content/home";
 import { site } from "@/content/site";
-import { BrandCollage } from "@/components/home/brand-collage";
-import { HeroSlideshow } from "@/components/home/hero-slideshow";
+import { HeroBand } from "@/components/home/hero-band";
 import { HomePromos } from "@/components/home/home-promos";
-import { ProductSlides } from "@/components/home/product-slides";
 import { StoryManifesto } from "@/components/home/story-manifesto";
 import { TrustAccordion } from "@/components/home/trust-accordion";
+
+// Client bands below the fold — separate chunks so they do not compete with hero LCP.
+const BrandCollage = dynamic(
+  () =>
+    import("@/components/home/brand-collage").then((m) => m.BrandCollage),
+  {
+    loading: () => (
+      <div
+        className="min-h-[var(--band-collage-height-mobile)] bg-surface-2 md:min-h-[var(--band-collage-height)]"
+        aria-hidden
+      />
+    ),
+  },
+);
+const ProductSlides = dynamic(() =>
+  import("@/components/home/product-slides").then((m) => m.ProductSlides),
+);
 
 export const metadata: Metadata = {
   title: { absolute: `${site.name} · ${site.tagline}` },
@@ -115,9 +132,14 @@ export default async function HomePage() {
     url: absoluteUrl("/"),
     searchUrlTemplate: `${base}/search?q={search_term_string}`,
   });
+  const lcpPath = slides[0]?.productImage?.path;
+  const lcpHref = lcpPath ? heroLcpUrl(lcpPath, 640) : null;
 
   return (
     <>
+      {lcpHref ? (
+        <link rel="preload" as="image" href={lcpHref} fetchPriority="high" />
+      ) : null}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }}
@@ -126,7 +148,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(siteLd) }}
       />
-      <HeroSlideshow slides={slides} />
+      <HeroBand slides={slides} />
       <BrandCollage tiles={collageTiles} />
       <HomePromos blocks={promos} />
       <StoryManifesto />

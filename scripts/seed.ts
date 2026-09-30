@@ -49,15 +49,37 @@ async function writePlaceholderImages(productId: string, color: string) {
 
   for (const frame of frames) {
     for (const width of SEED_WIDTHS) {
-      const buffer = await sharp({
-        create: {
-          width,
-          height: Math.round(width * 1.25),
-          channels: 3,
-          background: frame.background,
-        },
+      const height = Math.round(width * 1.25);
+      // Non-flat seed art with noise so LCP treats the hero as a real image.
+      const noise = Buffer.alloc(width * height * 3);
+      for (let i = 0; i < noise.length; i += 1) {
+        noise[i] = Math.floor(Math.random() * 48);
+      }
+      const noisePng = await sharp(noise, {
+        raw: { width, height, channels: 3 },
       })
-        .webp({ quality: 80 })
+        .png()
+        .toBuffer();
+      const bottleW = Math.round(width * 0.28);
+      const bottleH = Math.round(height * 0.55);
+      const bottleX = Math.round((width - bottleW) / 2);
+      const bottleY = Math.round(height * 0.22);
+      const svg = Buffer.from(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="rgb(${frame.background.r},${frame.background.g},${frame.background.b})"/>
+              <stop offset="100%" stop-color="rgb(${Math.max(0, frame.background.r - 40)},${Math.max(0, frame.background.g - 30)},${Math.max(0, frame.background.b - 20)})"/>
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#g)"/>
+          <rect x="${bottleX}" y="${bottleY}" width="${bottleW}" height="${bottleH}" rx="${Math.round(bottleW * 0.12)}" fill="rgba(255,255,255,0.35)" stroke="rgba(255,255,255,0.7)" stroke-width="${Math.max(2, Math.round(width / 160))}"/>
+          <rect x="${bottleX + Math.round(bottleW * 0.3)}" y="${bottleY - Math.round(bottleH * 0.08)}" width="${Math.round(bottleW * 0.4)}" height="${Math.round(bottleH * 0.1)}" rx="2" fill="rgba(255,255,255,0.55)"/>
+        </svg>`,
+      );
+      const buffer = await sharp(svg)
+        .composite([{ input: noisePng, blend: "overlay" }])
+        .webp({ quality: 82 })
         .toBuffer();
 
       const path = `products/${productId}/${frame.n}-${width}.webp`;

@@ -20,7 +20,7 @@ export function SiteHeader({ categories, user }: SiteHeaderProps) {
         <MobileNav categories={categories} />
         <Link
           href="/"
-          className="font-display text-2xl tracking-display text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="font-body text-2xl font-medium tracking-wide text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {site.name}
         </Link>

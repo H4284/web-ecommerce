@@ -24,9 +24,14 @@ function getReducedMotionServerSnapshot() {
 
 type HeroSlideshowProps = {
   slides: HeroSlide[];
+  /** First-slide id painted by the server `<img>` — skip a second client image for LCP. */
+  serverLcpId?: string | null;
 };
 
-export function HeroSlideshow({ slides }: HeroSlideshowProps) {
+export function HeroSlideshow({
+  slides,
+  serverLcpId = null,
+}: HeroSlideshowProps) {
   const reduceMotion = useSyncExternalStore(
     subscribeReducedMotion,
     getReducedMotionSnapshot,
@@ -34,6 +39,8 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
   );
   const [index, setIndex] = useState(0);
   const [outgoing, setOutgoing] = useState<number | null>(null);
+  const [autoplay, setAutoplay] = useState(false);
+  const [showChrome, setShowChrome] = useState(false);
   const count = slides.length;
   const slide = slides[index] ?? slides[0];
 
@@ -56,11 +63,25 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
     return () => window.clearTimeout(id);
   }, [outgoing, reduceMotion]);
 
+  // Reveal chrome + autoplay after load so LCP stays on the server hero image.
   useEffect(() => {
-    if (reduceMotion || count < 2) return;
+    const start = () => {
+      setShowChrome(true);
+      if (!reduceMotion && count >= 2) setAutoplay(true);
+    };
+    if (document.readyState === "complete") {
+      start();
+      return;
+    }
+    window.addEventListener("load", start, { once: true });
+    return () => window.removeEventListener("load", start);
+  }, [count, reduceMotion]);
+
+  useEffect(() => {
+    if (!autoplay || reduceMotion || count < 2) return;
     const id = window.setInterval(() => go(index + 1), 6000);
     return () => window.clearInterval(id);
-  }, [count, go, index, reduceMotion]);
+  }, [autoplay, count, go, index, reduceMotion]);
 
   if (!slide) return null;
 
@@ -70,13 +91,14 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
   );
 
   return (
-    <section
-      className="relative h-[calc(100dvh-var(--site-top-offset))] min-h-[calc(100dvh-var(--site-top-offset))] w-full overflow-hidden bg-ink"
+    <div
+      className="absolute inset-0"
       aria-roledescription="carousel"
-      aria-label="Hero"
+      aria-label="Hero slides"
     >
       {slides.map((item, i) => {
         if (!visible.has(i)) return null;
+        const useServerLcp = Boolean(serverLcpId && item.id === serverLcpId);
         return (
           <div
             key={item.id}
@@ -87,68 +109,80 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
             )}
             aria-hidden={i !== index}
           >
-            <div className="hidden h-full lg:grid lg:grid-cols-2">
+            {/* One product image for mobile full-bleed and desktop left half — avoids dual priority loads. */}
+            <div className="absolute inset-0 lg:right-1/2">
               <div className="relative h-full overflow-hidden bg-surface-2">
-                <ProductHalf slide={item} priority={i === index} />
-              </div>
-              <div className="relative h-full overflow-hidden bg-ink">
-                <AtmosphereHalf />
-                <p className="pointer-events-none absolute top-1/2 right-[12%] z-10 max-w-[10ch] -translate-y-1/2 text-right font-display text-4xl tracking-display text-on-accent">
-                  {item.rightLabel}
-                </p>
+                <ProductHalf
+                  slide={item}
+                  priority={i === index && !useServerLcp}
+                  skipImage={useServerLcp}
+                />
               </div>
             </div>
-            <div className="relative h-full lg:hidden">
-              <ProductHalf slide={item} priority={i === index} />
+            <div className="absolute inset-0 left-1/2 hidden overflow-hidden bg-ink lg:block">
+              <AtmosphereHalf />
+              <p className="pointer-events-none absolute top-1/2 right-[12%] z-10 max-w-[10ch] -translate-y-1/2 text-right font-display text-4xl tracking-display text-on-accent">
+                {item.rightLabel}
+              </p>
             </div>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/50 to-transparent lg:hidden" />
           </div>
         );
       })}
 
-      <div className="pointer-events-none absolute inset-0 z-20 hidden items-center justify-center lg:flex">
-        <Link
-          href={slide.href}
-          className="pointer-events-auto inline-flex min-h-11 items-center gap-2 px-2 font-body text-sm tracking-wide text-on-accent uppercase underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-accent"
-        >
-          {homeHero.ctaLabel}
-          <ArrowUpRight className="size-4" aria-hidden />
-        </Link>
-      </div>
-
-      <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-3 p-4 lg:hidden">
-        <div className="flex items-center justify-end gap-2 text-xs text-on-accent">
-          <span aria-live="polite">{counter}</span>
-          <button
-            type="button"
-            onClick={() => go(index + 1)}
-            className="inline-flex size-11 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-accent"
-            aria-label="Slide tjetër"
+      {showChrome ? (
+        <div className="pointer-events-none absolute inset-0 z-20 hidden items-center justify-center lg:flex">
+          <Link
+            href={slide.href}
+            className="pointer-events-auto inline-flex min-h-11 items-center gap-2 px-2 font-body text-sm tracking-wide text-on-accent uppercase underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-accent"
           >
-            <ArrowUpRight className="size-4 rotate-45" aria-hidden />
-          </button>
-        </div>
-        <Link
-          href={slide.href}
-          className="flex min-h-14 items-center justify-between gap-3 bg-ink/70 px-4 py-3 text-on-accent backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-accent"
-        >
-          <span className="font-display text-lg tracking-display">{slide.name}</span>
-          <span className="inline-flex items-center gap-1 text-xs tracking-wide uppercase">
             {homeHero.ctaLabel}
-            <ArrowUpRight className="size-3.5" aria-hidden />
-          </span>
-        </Link>
-      </div>
-    </section>
+            <ArrowUpRight className="size-4" aria-hidden />
+          </Link>
+        </div>
+      ) : null}
+
+      {showChrome ? (
+        <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-3 p-4 lg:hidden">
+          <div className="flex items-center justify-end gap-2 text-xs text-on-accent">
+            <span aria-live="polite">{counter}</span>
+            <button
+              type="button"
+              onClick={() => go(index + 1)}
+              className="inline-flex size-11 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-accent"
+              aria-label="Slide tjetër"
+            >
+              <ArrowUpRight className="size-4 rotate-45" aria-hidden />
+            </button>
+          </div>
+          <Link
+            href={slide.href}
+            className="flex min-h-14 items-center justify-between gap-3 bg-ink/70 px-4 py-3 text-on-accent backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-accent"
+          >
+            <span className="font-body text-lg tracking-wide">{slide.name}</span>
+            <span className="inline-flex items-center gap-1 text-xs tracking-wide uppercase">
+              {homeHero.ctaLabel}
+              <ArrowUpRight className="size-3.5" aria-hidden />
+            </span>
+          </Link>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 function ProductHalf({
   slide,
   priority = false,
+  skipImage = false,
 }: {
   slide: HeroSlide;
   priority?: boolean;
+  skipImage?: boolean;
 }) {
+  if (skipImage) {
+    return <div className="h-full w-full bg-transparent" aria-hidden />;
+  }
   if (slide.productImage) {
     return (
       <Image

@@ -1,14 +1,20 @@
+import nextDynamic from "next/dynamic";
 import { getUser } from "@/lib/shop/auth";
 import { getCategoryTree } from "@/lib/shop/catalog";
 import { getShopSettings } from "@/lib/shop/settings";
 import { categoryNavItems } from "@/lib/shop/nav";
-import { CartDrawer } from "@/components/shop/cart-drawer";
 import { CartUiProvider } from "@/components/shop/cart-ui";
 import { FreeDeliveryBar } from "@/components/site/free-delivery-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { SkipLink } from "@/components/site/skip-link";
-import { Toaster } from "@/components/ui/sonner";
+
+const CartDrawer = nextDynamic(() =>
+  import("@/components/shop/cart-drawer").then((m) => m.CartDrawer),
+);
+const Toaster = nextDynamic(() =>
+  import("@/components/ui/sonner").then((m) => m.Toaster),
+);
 
 export const dynamic = "force-dynamic";
 
