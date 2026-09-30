@@ -279,7 +279,7 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 24 | `shop:admin-shell` | 21 | yes | | | done |
 | 25 | `shop:admin-products` | 3, 24 | yes | | | done |
 | 26 | `shop:admin-images` | 25 | yes | | | done |
-| 27 | `shop:admin-taxonomy` | 24 | yes | | | |
+| 27 | `shop:admin-taxonomy` | 24 | yes | | | done |
 | 28 | `shop:admin-orders` | 18, 24 | yes | | | |
 | 29 | `shop:admin-discounts` | 14, 24 | yes | | | |
 | 30 | `shop:admin-content` | 24, 26 | yes | | | hero · promo |

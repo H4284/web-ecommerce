@@ -29,6 +29,7 @@ export const brandSchema = z.object({
   name: z.string().min(1),
   slug: slugSchema,
   logo: imageRefSchema.nullable().optional(),
+  description: z.string().optional(),
   isActive: z.boolean(),
   seo: seoSchema.optional(),
 });
