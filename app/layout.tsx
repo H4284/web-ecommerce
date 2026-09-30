@@ -6,14 +6,14 @@ import { siteUrl } from "@/lib/shop/site-url";
 
 const display = Cormorant_Garamond({
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600"],
+  weight: ["400"],
   variable: "--font-cormorant",
   display: "swap",
 });
 
 const body = Source_Sans_3({
   subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500"],
   variable: "--font-source",
   display: "swap",
 });
@@ -30,9 +30,16 @@ export const metadata: Metadata = {
   },
 };
 
+const storageOrigin =
+  process.env.NEXT_PUBLIC_STORAGE_ORIGIN ?? "https://firebasestorage.googleapis.com";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang={site.defaultLocale} className={`${display.variable} ${body.variable}`}>
+      <head>
+        <link rel="preconnect" href={storageOrigin} />
+        <link rel="dns-prefetch" href={storageOrigin} />
+      </head>
       <body className="min-h-dvh bg-surface font-body text-ink antialiased">{children}</body>
     </html>
   );

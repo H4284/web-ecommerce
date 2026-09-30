@@ -113,9 +113,13 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
-          {listing.items.map((product) => (
+          {listing.items.map((product, i) => (
             <li key={product.id}>
-              <ProductCard product={product} brandName={brandName} />
+              <ProductCard
+                product={product}
+                brandName={brandName}
+                priority={i < 4}
+              />
             </li>
           ))}
         </ul>

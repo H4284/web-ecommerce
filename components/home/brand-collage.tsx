@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { homeBrand } from "@/content/home";
 import { site } from "@/content/site";
@@ -43,6 +43,30 @@ export function BrandCollage({ tiles = [] }: BrandCollageProps) {
     getReducedMotionSnapshot,
     getReducedMotionServerSnapshot,
   );
+  // Defer tile images until after first paint so they do not compete with hero LCP.
+  const [showTiles, setShowTiles] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) setShowTiles(true);
+    };
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (typeof w.requestIdleCallback === "function") {
+      const id = w.requestIdleCallback(run, { timeout: 1200 });
+      return () => {
+        cancelled = true;
+        w.cancelIdleCallback?.(id);
+      };
+    }
+    const t = window.setTimeout(run, 1);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, []);
 
   return (
     <section
@@ -65,12 +89,13 @@ export function BrandCollage({ tiles = [] }: BrandCollageProps) {
                 aspectRatio: slot.aspect,
               }}
             >
-              {media?.path ? (
+              {showTiles && media?.path ? (
                 <Image
                   src={media.path}
                   alt={media.alt}
                   fill
                   sizes="144px"
+                  loading="lazy"
                   className="object-cover"
                 />
               ) : (

@@ -179,6 +179,7 @@ function SlidePanel({
               src={image.path}
               alt={image.alt}
               fill
+              loading="lazy"
               sizes={isMobile ? "70vw" : "(max-width: 1440px) 40vw, 533px"}
               className="object-contain"
             />

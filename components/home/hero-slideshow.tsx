@@ -33,16 +33,28 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
     getReducedMotionServerSnapshot,
   );
   const [index, setIndex] = useState(0);
+  const [outgoing, setOutgoing] = useState<number | null>(null);
   const count = slides.length;
   const slide = slides[index] ?? slides[0];
 
   const go = useCallback(
     (next: number) => {
       if (count === 0) return;
-      setIndex(((next % count) + count) % count);
+      const target = ((next % count) + count) % count;
+      if (target === index) return;
+      setOutgoing(index);
+      setIndex(target);
     },
-    [count],
+    [count, index],
   );
+
+  useEffect(() => {
+    if (outgoing == null) return;
+    // Keep outgoing slide mounted for the crossfade (`--duration-slow` = 700ms).
+    const ms = reduceMotion ? 0 : 700;
+    const id = window.setTimeout(() => setOutgoing(null), ms);
+    return () => window.clearTimeout(id);
+  }, [outgoing, reduceMotion]);
 
   useEffect(() => {
     if (reduceMotion || count < 2) return;
@@ -53,6 +65,9 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
   if (!slide) return null;
 
   const counter = `${String(index + 1).padStart(2, "0")} / ${String(count).padStart(2, "0")}`;
+  const visible = new Set(
+    [index, outgoing].filter((n): n is number => n != null && n >= 0),
+  );
 
   return (
     <section
@@ -60,32 +75,35 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
       aria-roledescription="carousel"
       aria-label="Hero"
     >
-      {slides.map((item, i) => (
-        <div
-          key={item.id}
-          className={cn(
-            "absolute inset-0 transition-opacity ease-[var(--ease-in-out)] duration-[var(--duration-slow)]",
-            i === index ? "z-10 opacity-100" : "z-0 opacity-0",
-            reduceMotion && "transition-none",
-          )}
-          aria-hidden={i !== index}
-        >
-          <div className="hidden h-full lg:grid lg:grid-cols-2">
-            <div className="relative h-full overflow-hidden bg-surface-2">
-              <ProductHalf slide={item} />
+      {slides.map((item, i) => {
+        if (!visible.has(i)) return null;
+        return (
+          <div
+            key={item.id}
+            className={cn(
+              "absolute inset-0 transition-opacity ease-[var(--ease-in-out)] duration-[var(--duration-slow)]",
+              i === index ? "z-10 opacity-100" : "z-0 opacity-0",
+              reduceMotion && "transition-none",
+            )}
+            aria-hidden={i !== index}
+          >
+            <div className="hidden h-full lg:grid lg:grid-cols-2">
+              <div className="relative h-full overflow-hidden bg-surface-2">
+                <ProductHalf slide={item} priority={i === index} />
+              </div>
+              <div className="relative h-full overflow-hidden bg-ink">
+                <AtmosphereHalf />
+                <p className="pointer-events-none absolute top-1/2 right-[12%] z-10 max-w-[10ch] -translate-y-1/2 text-right font-display text-4xl tracking-display text-on-accent">
+                  {item.rightLabel}
+                </p>
+              </div>
             </div>
-            <div className="relative h-full overflow-hidden bg-ink">
-              <AtmosphereHalf />
-              <p className="pointer-events-none absolute top-1/2 right-[12%] z-10 max-w-[10ch] -translate-y-1/2 text-right font-display text-4xl tracking-display text-on-accent">
-                {item.rightLabel}
-              </p>
+            <div className="relative h-full lg:hidden">
+              <ProductHalf slide={item} priority={i === index} />
             </div>
           </div>
-          <div className="relative h-full lg:hidden">
-            <ProductHalf slide={item} />
-          </div>
-        </div>
-      ))}
+        );
+      })}
 
       <div className="pointer-events-none absolute inset-0 z-20 hidden items-center justify-center lg:flex">
         <Link
@@ -124,15 +142,23 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
   );
 }
 
-function ProductHalf({ slide }: { slide: HeroSlide }) {
+function ProductHalf({
+  slide,
+  priority = false,
+}: {
+  slide: HeroSlide;
+  priority?: boolean;
+}) {
   if (slide.productImage) {
     return (
       <Image
         src={slide.productImage.path}
         alt={slide.productImage.alt}
         fill
-        priority
-        sizes="(max-width: 1024px) 100vw, 50vw"
+        priority={priority}
+        fetchPriority={priority ? "high" : "auto"}
+        // Cap device-pixel requests at 640px width (IMAGE_WIDTHS) so LCP is not a 1280 file.
+        sizes="(max-width: 1024px) 200px, 280px"
         className="object-cover"
       />
     );

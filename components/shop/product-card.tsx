@@ -15,6 +15,8 @@ export type ProductCardModel = {
 
 type ProductCardProps = ProductCardModel & {
   className?: string;
+  /** First viewport cards only — avoids competing LCP images. */
+  priority?: boolean;
 };
 
 export function ProductCard({
@@ -23,6 +25,7 @@ export function ProductCard({
   variantLabel,
   compareAtCents,
   className,
+  priority = false,
 }: ProductCardProps) {
   const primary = product.images[0];
   const secondary = product.images[1];
@@ -43,6 +46,7 @@ export function ProductCard({
             src={primary.path}
             alt={primary.alt}
             fill
+            priority={priority}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className={cn(
               "object-cover transition-opacity duration-[var(--duration-base)] ease-[var(--ease-out)]",

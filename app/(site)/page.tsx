@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getBestSellers, getNewProducts, listProducts } from "@/lib/shop/catalog";
+import { getNewProducts } from "@/lib/shop/catalog";
 import type { ProductDoc } from "@/lib/shop/catalog-queries";
 import { getHomeContent } from "@/lib/shop/home-content";
 import {
@@ -28,26 +28,7 @@ export default async function HomePage() {
   let products: ProductDoc[] = [];
   let featureProducts: ProductDoc[] = [];
   let catalogPool: ProductDoc[] = [];
-  try {
-    const [fresh, best, listed] = await Promise.all([
-      getNewProducts(12),
-      getBestSellers(3),
-      listProducts({ page: 1, pageSize: 48, sort: "newest" }),
-    ]);
-    products = fresh;
-    featureProducts = best.length >= 3 ? best.slice(0, 3) : fresh.slice(0, 3);
-    catalogPool = listed.items;
-  } catch (err) {
-    console.error("[home] catalog unavailable:", err);
-  }
-
   let homeContent = null;
-  try {
-    homeContent = await getHomeContent();
-  } catch (err) {
-    console.error("[home] content unavailable:", err);
-  }
-
   let company: {
     email: string | null;
     phone: string | null;
@@ -57,22 +38,48 @@ export default async function HomePage() {
     phone: site.whatsapp,
     address: site.nap.address.includes("CONFIRM") ? null : site.nap.address,
   };
+
   try {
-    const settings = await getShopSettings();
-    company = {
-      email: settings.company.email,
-      phone: settings.company.phone,
-      address: settings.company.address,
-    };
-  } catch {
-    // keep site fallbacks
+    // One catalog read for hero + collage + feature slides — fewer emulator round-trips for LCP.
+    const [fresh, content, settings] = await Promise.all([
+      getNewProducts(12),
+      getHomeContent().catch((err) => {
+        console.error("[home] content unavailable:", err);
+        return null;
+      }),
+      getShopSettings().catch(() => null),
+    ]);
+    products = fresh;
+    featureProducts = fresh.slice(0, 3);
+    catalogPool = fresh;
+    homeContent = content;
+    if (settings) {
+      company = {
+        email: settings.company.email,
+        phone: settings.company.phone,
+        address: settings.company.address,
+      };
+    }
+  } catch (err) {
+    console.error("[home] catalog unavailable:", err);
   }
 
   const cmsSlides = homeContent
     ? buildHeroSlidesFromContent(homeContent.heroSlides)
     : [];
+  const productHero = buildHeroSlides(products.slice(0, 3));
+  // Seeded CMS slides often lack imagePath — fill from catalog so the LCP frame is a real image.
   const slides =
-    cmsSlides.length > 0 ? cmsSlides : buildHeroSlides(products.slice(0, 3));
+    cmsSlides.length > 0
+      ? cmsSlides.map((slide, i) => ({
+          ...slide,
+          productImage: slide.productImage ?? productHero[i]?.productImage ?? null,
+          href:
+            slide.href && slide.href !== "#"
+              ? slide.href
+              : (productHero[i]?.href ?? slide.href),
+        }))
+      : productHero;
 
   const collageSources = orderByIds(
     homeContent?.brandStripProductIds ?? [],
