@@ -16,6 +16,7 @@ import { ProductRelated } from "@/components/shop/product-related";
 import { ProductView } from "@/components/shop/product-view";
 import { site } from "@/content/site";
 import { shopCopy } from "@/content/shop";
+import { defaultOgImage, socialMetadata } from "@/lib/shop/og";
 import { absoluteUrl, siteUrl } from "@/lib/shop/site-url";
 
 type PageProps = {
@@ -55,19 +56,26 @@ export async function generateMetadata({
     : `${product.name} | ${site.name}`;
   const description = product.shortDescription || site.tagline;
   const canonical = absoluteUrl(`/products/${product.slug}`);
-  const ogImage = product.images[0]
-    ? absoluteImageUrl(product.images[0].path)
-    : undefined;
+  const ogImages = product.images[0]
+    ? [
+        {
+          url: absoluteImageUrl(product.images[0].path),
+          width: 1280,
+          alt: product.images[0].alt,
+        },
+      ]
+    : [defaultOgImage];
 
   return {
     title: { absolute: title },
     description,
     alternates: { canonical },
-    openGraph: {
+    ...socialMetadata({
       title,
       description,
-      images: ogImage ? [{ url: ogImage, width: 1280, alt: product.images[0]?.alt }] : [],
-    },
+      path: `/products/${product.slug}`,
+      images: ogImages,
+    }),
   };
 }
 

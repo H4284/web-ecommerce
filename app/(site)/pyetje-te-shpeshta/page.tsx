@@ -2,12 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { faq } from "@/content/faq";
 import { site } from "@/content/site";
+import { socialMetadata } from "@/lib/shop/og";
 import { absoluteUrl } from "@/lib/shop/site-url";
 
 export const metadata: Metadata = {
   title: faq.title,
   description: faq.description,
   alternates: { canonical: absoluteUrl("/pyetje-te-shpeshta") },
+  ...socialMetadata({
+    title: `${faq.title} · ${site.name}`,
+    description: faq.description,
+    path: "/pyetje-te-shpeshta",
+  }),
 };
 
 export default function FaqPage() {

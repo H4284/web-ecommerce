@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { site } from "@/content/site";
+import { socialMetadata } from "@/lib/shop/og";
 import { siteUrl } from "@/lib/shop/site-url";
 
 const display = Cormorant_Garamond({
@@ -19,6 +20,8 @@ const body = Source_Sans_3({
   display: "swap",
 });
 
+const defaultTitle = `${site.name} · ${site.tagline}`;
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: {
@@ -29,6 +32,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  ...socialMetadata({
+    title: defaultTitle,
+    description: site.tagline,
+    path: "/",
+  }),
 };
 
 const storageOrigin =

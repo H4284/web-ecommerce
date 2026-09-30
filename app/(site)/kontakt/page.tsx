@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import { kontakt } from "@/content/kontakt";
 import { site } from "@/content/site";
+import { socialMetadata } from "@/lib/shop/og";
 import { absoluteUrl } from "@/lib/shop/site-url";
 
 export const metadata: Metadata = {
   title: kontakt.title,
   description: kontakt.description,
   alternates: { canonical: absoluteUrl("/kontakt") },
+  ...socialMetadata({
+    title: `${kontakt.title} · ${site.name}`,
+    description: kontakt.description,
+    path: "/kontakt",
+  }),
 };
 
 export default function KontaktPage() {

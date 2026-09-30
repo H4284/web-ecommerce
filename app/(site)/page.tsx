@@ -11,6 +11,7 @@ import {
 import { organizationJsonLd, websiteJsonLd } from "@/lib/shop/json-ld";
 import { getShopSettings } from "@/lib/shop/settings";
 import { absoluteUrl, siteUrl } from "@/lib/shop/site-url";
+import { socialMetadata } from "@/lib/shop/og";
 import { homeBrand } from "@/content/home";
 import { site } from "@/content/site";
 import { HeroBand } from "@/components/home/hero-band";
@@ -35,10 +36,17 @@ const ProductSlides = dynamic(() =>
   import("@/components/home/product-slides").then((m) => m.ProductSlides),
 );
 
+const homeTitle = `${site.name} · ${site.tagline}`;
+
 export const metadata: Metadata = {
-  title: { absolute: `${site.name} · ${site.tagline}` },
+  title: { absolute: homeTitle },
   description: site.tagline,
   alternates: { canonical: absoluteUrl("/") },
+  ...socialMetadata({
+    title: homeTitle,
+    description: site.tagline,
+    path: "/",
+  }),
 };
 
 export default async function HomePage() {
