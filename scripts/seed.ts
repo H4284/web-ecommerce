@@ -20,6 +20,12 @@ import {
   HOME_CONTENT_PATH,
   homeContentSchema,
 } from "@/lib/shop/home-content-schema";
+import {
+  E2E_ADMIN_EMAIL,
+  E2E_ADMIN_PASSWORD,
+  E2E_DISCOUNT_CODE,
+} from "@/lib/shop/seed-e2e";
+import { discountSchema } from "@/lib/shop/discounts";
 import { setRemoteProject } from "./lib/remote";
 
 async function writePlaceholderImages(productId: string, color: string) {
@@ -124,15 +130,54 @@ async function main() {
     .doc(HOME_CONTENT_PATH.id)
     .set(homeContent);
 
+  await seedE2eFixtures();
+
   const expected = seedExpectedCounts();
   await db.collection("meta").doc("seed").set({
     at: new Date().toISOString(),
     ...expected,
     settings: true,
     homeContent: true,
+    e2eAdmin: E2E_ADMIN_EMAIL,
+    e2eDiscount: E2E_DISCOUNT_CODE,
   });
 
-  console.log("Seed complete", { ...expected, settings: true, homeContent: true });
+  console.log("Seed complete", {
+    ...expected,
+    settings: true,
+    homeContent: true,
+    e2eAdmin: E2E_ADMIN_EMAIL,
+    e2eDiscount: E2E_DISCOUNT_CODE,
+  });
+}
+
+/** Admin user + discount code for Playwright golden path. */
+async function seedE2eFixtures() {
+  const { adminAuth, db } = await import("@/lib/firebase/admin");
+
+  let user;
+  try {
+    user = await adminAuth.getUserByEmail(E2E_ADMIN_EMAIL);
+    await adminAuth.updateUser(user.uid, { password: E2E_ADMIN_PASSWORD });
+  } catch {
+    user = await adminAuth.createUser({
+      email: E2E_ADMIN_EMAIL,
+      password: E2E_ADMIN_PASSWORD,
+    });
+  }
+  await adminAuth.setCustomUserClaims(user.uid, { admin: true });
+
+  const discount = discountSchema.parse({
+    type: "percent",
+    value: 10,
+    minSubtotalCents: 0,
+    startsAt: "2020-01-01T00:00:00.000Z",
+    endsAt: "2099-12-31T23:59:59.000Z",
+    usageLimit: null,
+    usedCount: 0,
+    active: true,
+  });
+  await db.collection("discounts").doc(E2E_DISCOUNT_CODE).set(discount);
 }
 
 main().catch((err) => {

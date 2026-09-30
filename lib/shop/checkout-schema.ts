@@ -30,7 +30,17 @@ export const checkoutFormSchema = z
     email: z.string().trim().email({ message: "email" }).max(120),
     delivery: checkoutAddressSchema,
     billingSameAsDelivery: z.boolean(),
-    billing: checkoutAddressSchema.optional(),
+    /** Loose when same-as-delivery; strict check in superRefine when separate. */
+    billing: z
+      .object({
+        country: z.string().optional(),
+        city: z.string().optional(),
+        recipient: z.string().optional(),
+        address: z.string().optional(),
+        postalCode: z.string().optional(),
+        phone: z.string().optional(),
+      })
+      .optional(),
     deliveryMethodId: z.string().min(1, { message: "deliveryMethod" }),
     paymentMethodId: z.enum(["cod", "transfer", "bank-card"]),
     newsletterOptIn: z.boolean(),
@@ -43,8 +53,16 @@ export const checkoutFormSchema = z
     if (data.website && data.website.length > 0) {
       ctx.addIssue({ code: "custom", message: "honeypot", path: ["website"] });
     }
-    if (!data.billingSameAsDelivery && !data.billing) {
-      ctx.addIssue({ code: "custom", message: "billing", path: ["billing"] });
+    if (data.billingSameAsDelivery) return;
+    const parsed = checkoutAddressSchema.safeParse(data.billing);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        ctx.addIssue({
+          code: "custom",
+          message: String(issue.message),
+          path: ["billing", ...issue.path],
+        });
+      }
     }
   });
 
@@ -69,17 +87,21 @@ export function toNormalizedCheckoutPayload(values: CheckoutFormValues) {
   const delivery = {
     ...values.delivery,
     phone: deliveryPhone,
-    postalCode: values.delivery.postalCode?.trim() || undefined,
+    postalCode: values.delivery.postalCode?.trim() || "",
   };
 
   const billingSource = values.billingSameAsDelivery
     ? values.delivery
-    : values.billing!;
+    : checkoutAddressSchema.parse(values.billing);
   const billingPhone = normalizeKosovoPhone(billingSource.phone)!;
   const billing = {
     ...billingSource,
+    country: "XK" as const,
+    city: billingSource.city,
+    recipient: billingSource.recipient,
+    address: billingSource.address,
     phone: billingPhone,
-    postalCode: billingSource.postalCode?.trim() || undefined,
+    postalCode: billingSource.postalCode?.trim() || "",
   };
 
   return {

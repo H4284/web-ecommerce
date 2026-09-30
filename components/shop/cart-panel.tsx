@@ -160,6 +160,7 @@ export function CartPanel({
 
         <Link
           href="/checkout"
+          onClick={onContinue}
           className="inline-flex min-h-11 items-center justify-center bg-ink px-5 text-center text-sm font-medium text-on-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {shopCopy.cartCheckout}

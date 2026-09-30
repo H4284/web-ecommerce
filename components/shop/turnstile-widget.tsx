@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 type TurnstileWidgetProps = {
   onToken: (token: string) => void;
@@ -30,8 +30,10 @@ declare global {
 }
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+const USE_STUB =
+  !SITE_KEY || process.env.NEXT_PUBLIC_USE_EMULATORS === "1";
 
-/** Cloudflare Turnstile (explicit render). Stub token when the site key is missing. */
+/** Cloudflare Turnstile (explicit render). Stub token in emulators / when the site key is missing. */
 export function TurnstileWidget({
   onToken,
   onExpire,
@@ -47,11 +49,15 @@ export function TurnstileWidget({
     onExpireRef.current = onExpire;
   }, [onToken, onExpire]);
 
-  useEffect(() => {
-    if (!SITE_KEY) {
+  // Stub before paint so the form token is ready before the user can submit.
+  useLayoutEffect(() => {
+    if (USE_STUB) {
       onTokenRef.current("dev-turnstile-token");
-      return;
     }
+  }, []);
+
+  useEffect(() => {
+    if (USE_STUB) return;
     if (!hostRef.current) return;
 
     function mount() {
@@ -97,7 +103,7 @@ export function TurnstileWidget({
 
   useEffect(() => {
     if (!resetSignal) return;
-    if (!SITE_KEY) {
+    if (USE_STUB) {
       onTokenRef.current("dev-turnstile-token");
       return;
     }
@@ -107,7 +113,7 @@ export function TurnstileWidget({
     }
   }, [resetSignal]);
 
-  if (!SITE_KEY) {
+  if (USE_STUB) {
     return (
       <p className="text-xs text-ink-muted" data-testid="turnstile-dev">
         Turnstile (dev)

@@ -11,7 +11,6 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { shopCopy } from "@/content/shop";
 import {
   CHECKOUT_DRAFT_KEY,
@@ -107,6 +106,7 @@ function AddressFields({
             control={control}
             render={({ field }) => (
               <CityCombobox
+                name={field.name}
                 value={field.value ?? ""}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -169,7 +169,6 @@ export function CheckoutForm({
   paymentMethods,
   freeOverCents,
 }: CheckoutFormProps) {
-  const router = useRouter();
   const lines = useCartStore((s) => s.lines);
   const discountCode = useCartStore((s) => s.discountCode);
   const clearCart = useCartStore((s) => s.clear);
@@ -245,6 +244,8 @@ export function CheckoutForm({
         website: "",
         turnstileToken: "",
       });
+      // Stub/widget must re-emit — reset wiped the token after the first mount.
+      setTurnstileReset((n) => n + 1);
     } catch {
       // ignore bad draft
     }
@@ -293,14 +294,16 @@ export function CheckoutForm({
           number: string;
           thankYouUrl: string;
         };
-        clearCart();
+        toast.success(shopCopy.checkoutSuccess);
         try {
           sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
         } catch {
           // ignore
         }
-        toast.success(shopCopy.checkoutSuccess);
-        router.push(data.thankYouUrl);
+        const thankYouUrl = data.thankYouUrl;
+        clearCart();
+        // Hard navigation — soft push raced with empty-cart redirect to /cart?empty=1.
+        window.location.assign(thankYouUrl);
         return;
       }
 
@@ -497,6 +500,7 @@ export function CheckoutForm({
         ) : null}
 
         <div>
+          <input type="hidden" {...register("turnstileToken")} />
           <TurnstileWidget
             resetSignal={turnstileReset}
             onToken={(token) =>
