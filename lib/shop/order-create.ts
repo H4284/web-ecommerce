@@ -4,7 +4,7 @@ import {
   type DocumentReference,
 } from "firebase-admin/firestore";
 import { db } from "@/lib/firebase/admin";
-import { getUser } from "@/lib/shop/auth";
+import { getUser, type ShopUser } from "@/lib/shop/auth";
 import { mergeCartLines } from "@/lib/shop/cart-schema";
 import {
   toNormalizedCheckoutPayload,
@@ -83,10 +83,16 @@ function honeypotSuccess(): OrderSuccessResponse {
   };
 }
 
+type CreateOrderOptions = {
+  now?: Date;
+  /** When provided (including `null`), skip reading the session cookie. */
+  user?: ShopUser | null;
+};
+
 /** Create an order in one Firestore transaction. Ignores client prices. */
 export async function createOrder(
   body: CreateOrderBody,
-  options?: { now?: Date },
+  options?: CreateOrderOptions,
 ): Promise<OrderSuccessResponse> {
   if (body.website && body.website.length > 0) {
     return honeypotSuccess();
@@ -97,7 +103,10 @@ export async function createOrder(
   const normalized = toNormalizedCheckoutPayload(checkoutValues);
   const merged = mergeCartLines(body.lines);
 
-  const user = await getUser();
+  const user =
+    options !== undefined && "user" in options
+      ? (options.user ?? null)
+      : await getUser();
   const orderRef = db.collection("orders").doc();
   const counterRef = db.collection("counters").doc("orders");
   const settingsRef = db.collection("settings").doc("shop");

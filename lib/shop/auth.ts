@@ -12,8 +12,14 @@ export type { ShopUser } from "@/lib/shop/auth-types";
 export { SESSION_COOKIE, SESSION_MAX_AGE_SEC } from "@/lib/shop/auth-types";
 
 export async function getUser(): Promise<ShopUser | null> {
-  const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
+  let token: string | undefined;
+  try {
+    const jar = await cookies();
+    token = jar.get(SESSION_COOKIE)?.value;
+  } catch {
+    // Outside a Next.js request (emulator scripts / Vitest) — guest.
+    return null;
+  }
   if (!token) return null;
 
   try {

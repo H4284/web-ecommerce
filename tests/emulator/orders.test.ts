@@ -60,6 +60,7 @@ describe.skipIf(!hasEmulator)("order create against emulator", () => {
 
     const result = await createOrder(
       baseBody([{ variantId: variant.id, productId, qty: 1 }]),
+      { user: null },
     );
 
     expect(result.number).toMatch(/^SAN-\d{4}-\d{5}$/);
@@ -95,6 +96,7 @@ describe.skipIf(!hasEmulator)("order create against emulator", () => {
 
     const result = await createOrder(
       baseBody([{ variantId: variant.id, productId, qty: 1 }]),
+      { user: null },
     );
     const order = (await db.collection("orders").doc(result.orderId).get()).data()!;
     expect(order.lines[0].priceCents).toBe(serverPrice);
@@ -116,6 +118,7 @@ describe.skipIf(!hasEmulator)("order create against emulator", () => {
           { variantId: variant.id, productId, qty: 2 },
           { variantId: variant.id, productId, qty: 2 },
         ]),
+        { user: null },
       ),
     ).rejects.toBeInstanceOf(OrderStockError);
 
@@ -136,7 +139,10 @@ describe.skipIf(!hasEmulator)("order create against emulator", () => {
     }
 
     const body = baseBody([{ variantId: variant.id, productId, qty: 1 }]);
-    const settled = await Promise.allSettled([createOrder(body), createOrder(body)]);
+    const settled = await Promise.allSettled([
+      createOrder(body, { user: null }),
+      createOrder(body, { user: null }),
+    ]);
 
     const ok = settled.filter((s) => s.status === "fulfilled");
     const fail = settled.filter((s) => s.status === "rejected");
