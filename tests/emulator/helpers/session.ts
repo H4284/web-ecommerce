@@ -57,3 +57,12 @@ export function mockSessionCookie(sessionCookie: string) {
     }),
   };
 }
+
+/** Guest / no session — for createOrder in emulator tests. */
+export function mockGuestCookies() {
+  return {
+    cookies: async () => ({
+      get: () => undefined,
+    }),
+  };
+}
