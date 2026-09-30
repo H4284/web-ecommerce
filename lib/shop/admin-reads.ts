@@ -1,11 +1,4 @@
 import "server-only";
-import { requireAdmin } from "@/lib/shop/auth";
 
-/** Admin home payload — every admin read calls requireAdmin(). */
-export async function getAdminDashboard() {
-  const user = await requireAdmin();
-  return {
-    email: user.email,
-    uid: user.uid,
-  };
-}
+/** @deprecated Prefer `@/lib/shop/admin-dashboard`. Kept for older imports. */
+export { getAdminDashboard } from "@/lib/shop/admin-dashboard";
