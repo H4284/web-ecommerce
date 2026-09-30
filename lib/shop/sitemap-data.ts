@@ -30,6 +30,7 @@ export async function buildSitemapEntries(): Promise<MetadataRoute.Sitemap> {
 
   add("/");
   add("/kontakt");
+  add("/pyetje-te-shpeshta");
 
   for (const page of LEGAL_PAGES) {
     const md = readLegalMarkdown(page.slug);
