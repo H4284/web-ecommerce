@@ -16,20 +16,17 @@ import { ProductRelated } from "@/components/shop/product-related";
 import { ProductView } from "@/components/shop/product-view";
 import { site } from "@/content/site";
 import { shopCopy } from "@/content/shop";
+import { absoluteUrl, siteUrl } from "@/lib/shop/site-url";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ variant?: string }>;
 };
 
-function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
-
 function absoluteImageUrl(path: string) {
   const src = imageLoader({ src: path, width: 1280 });
   if (src.startsWith("http")) return src;
-  return `${siteUrl().replace(/\/$/, "")}${src.startsWith("/") ? src : `/${src}`}`;
+  return absoluteUrl(src.startsWith("/") ? src : `/${src}`);
 }
 
 export async function generateMetadata({
@@ -57,7 +54,7 @@ export async function generateMetadata({
     ? `${product.name} - ${suffix} | ${site.name}`
     : `${product.name} | ${site.name}`;
   const description = product.shortDescription || site.tagline;
-  const canonical = `${siteUrl().replace(/\/$/, "")}/products/${product.slug}`;
+  const canonical = absoluteUrl(`/products/${product.slug}`);
   const ogImage = product.images[0]
     ? absoluteImageUrl(product.images[0].path)
     : undefined;

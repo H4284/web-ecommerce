@@ -15,6 +15,7 @@ import { ProductCard } from "@/components/shop/product-card";
 import { ProductSortSelect } from "@/components/shop/product-sort-select";
 import { site } from "@/content/site";
 import { shopCopy } from "@/content/shop";
+import { absoluteUrl, siteUrl } from "@/lib/shop/site-url";
 
 const PAGE_SIZE = 12;
 
@@ -22,10 +23,6 @@ type PageProps = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ page?: string; sort?: string }>;
 };
-
-function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -37,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = category.seo?.title ?? category.name;
   const description =
     category.seo?.description ?? `${category.name} — ${site.tagline}`;
-  const canonical = `${siteUrl().replace(/\/$/, "")}/categories/${category.slug}`;
+  const canonical = absoluteUrl(`/categories/${category.slug}`);
 
   return {
     title: { absolute: `${title} | ${site.name}` },

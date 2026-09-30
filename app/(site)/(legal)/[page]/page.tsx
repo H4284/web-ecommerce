@@ -10,6 +10,7 @@ import {
 } from "@/lib/shop/legal-pages";
 import { LegalProse } from "@/components/shop/legal-prose";
 import { site } from "@/content/site";
+import { absoluteUrl } from "@/lib/shop/site-url";
 
 type PageProps = {
   params: Promise<{ page: string }>;
@@ -31,6 +32,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: meta.title,
     description: `${meta.title} — ${site.name}`,
+    alternates: { canonical: absoluteUrl(`/${slug}`) },
     robots: isLegalPlaceholder(markdown) ? { index: false, follow: false } : undefined,
   };
 }

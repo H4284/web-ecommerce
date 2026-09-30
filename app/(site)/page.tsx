@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getBestSellers, getNewProducts, listProducts } from "@/lib/shop/catalog";
 import type { ProductDoc } from "@/lib/shop/catalog-queries";
 import { getHomeContent } from "@/lib/shop/home-content";
@@ -5,13 +6,23 @@ import {
   buildHeroSlides,
   buildHeroSlidesFromContent,
 } from "@/lib/shop/hero-slides";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/shop/json-ld";
+import { getShopSettings } from "@/lib/shop/settings";
+import { absoluteUrl, siteUrl } from "@/lib/shop/site-url";
 import { homeBrand } from "@/content/home";
+import { site } from "@/content/site";
 import { BrandCollage } from "@/components/home/brand-collage";
 import { HeroSlideshow } from "@/components/home/hero-slideshow";
 import { HomePromos } from "@/components/home/home-promos";
 import { ProductSlides } from "@/components/home/product-slides";
 import { StoryManifesto } from "@/components/home/story-manifesto";
 import { TrustAccordion } from "@/components/home/trust-accordion";
+
+export const metadata: Metadata = {
+  title: { absolute: `${site.name} · ${site.tagline}` },
+  description: site.tagline,
+  alternates: { canonical: absoluteUrl("/") },
+};
 
 export default async function HomePage() {
   let products: ProductDoc[] = [];
@@ -35,6 +46,26 @@ export default async function HomePage() {
     homeContent = await getHomeContent();
   } catch (err) {
     console.error("[home] content unavailable:", err);
+  }
+
+  let company: {
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+  } = {
+    email: site.email,
+    phone: site.whatsapp,
+    address: site.nap.address.includes("CONFIRM") ? null : site.nap.address,
+  };
+  try {
+    const settings = await getShopSettings();
+    company = {
+      email: settings.company.email,
+      phone: settings.company.phone,
+      address: settings.company.address,
+    };
+  } catch {
+    // keep site fallbacks
   }
 
   const cmsSlides = homeContent
@@ -64,8 +95,30 @@ export default async function HomePage() {
     .filter((p) => p.active)
     .sort((a, b) => a.order - b.order);
 
+  const base = siteUrl();
+  const orgLd = organizationJsonLd({
+    name: site.name,
+    url: absoluteUrl("/"),
+    email: company.email,
+    telephone: company.phone,
+    address: company.address,
+  });
+  const siteLd = websiteJsonLd({
+    name: site.name,
+    url: absoluteUrl("/"),
+    searchUrlTemplate: `${base}/search?q={search_term_string}`,
+  });
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(siteLd) }}
+      />
       <HeroSlideshow slides={slides} />
       <BrandCollage tiles={collageTiles} />
       <HomePromos blocks={promos} />

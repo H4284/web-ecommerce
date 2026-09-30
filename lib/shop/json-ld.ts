@@ -54,3 +54,55 @@ export function productJsonLd(product: ProductLdInput) {
     })),
   };
 }
+
+type OrganizationLdInput = {
+  name: string;
+  url: string;
+  logoUrl?: string;
+  email?: string | null;
+  telephone?: string | null;
+  address?: string | null;
+};
+
+export function organizationJsonLd(org: OrganizationLdInput) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: org.name,
+    url: org.url,
+    ...(org.logoUrl ? { logo: org.logoUrl } : {}),
+    ...(org.email ? { email: org.email } : {}),
+    ...(org.telephone ? { telephone: org.telephone } : {}),
+    ...(org.address
+      ? {
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: org.address,
+          },
+        }
+      : {}),
+  };
+}
+
+type WebsiteLdInput = {
+  name: string;
+  url: string;
+  searchUrlTemplate: string;
+};
+
+export function websiteJsonLd(site: WebsiteLdInput) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: site.name,
+    url: site.url,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: site.searchUrlTemplate,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
