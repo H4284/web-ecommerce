@@ -288,5 +288,5 @@ Two tracks after `shop:rules-tests` + shell: **A** storefront → cart → check
 | 33 | `shop:seo` | 9 | yes | | | done |
 | 34 | `shop:hardening` | 17 | yes | | | done |
 | 35 | `shop:e2e` | 28 | yes | | | done |
-| 36 | `shop:backups` | production | yes | | | |
+| 36 | `shop:backups` | production | yes | | | blocked · handoff ready · need Owner on `sanem-prod` |
 | 37 | `shop:import` | 26 | no | | | list + photos, not spreadsheet |
