@@ -40,7 +40,9 @@ Card payment is off until Step 0 is received. Portal owner: the client.
 
 ## Firestore backups (production)
 
-Daily schedule on **`sanem-prod`**, database `(default)`, retention **4 weeks** (`28d`).
+Daily schedule, database `(default)`, retention **4 weeks** (`28d`).
+
+Verified 2026-09-30: **`sanem-prod` does not exist yet.** Until it does, create the schedule on **`sanem-ac70d`** (needs Blaze billing). Deferred — billing was not on when this unit ran.
 
 ### Create the schedule
 
@@ -51,28 +53,16 @@ pnpm exec firebase firestore:backups:schedules:create \
   --database '(default)' \
   --recurrence DAILY \
   --retention 28d \
-  --project sanem-prod
+  --project sanem-ac70d
 ```
 
-Or with gcloud:
-
-```bash
-gcloud firestore backups schedules create \
-  --database='(default)' \
-  --recurrence=daily \
-  --retention=4w \
-  --project sanem-prod
-```
-
-Helper (same flags): `node scripts/create-backup-schedule.mjs`.
+Or with gcloud (same project). Helper: `node scripts/create-backup-schedule.mjs` (defaults to `sanem-ac70d`; set `FIREBASE_BACKUP_PROJECT=sanem-prod` later).
 
 Verify:
 
 ```bash
-pnpm exec firebase firestore:backups:schedules:list --project sanem-prod
+pnpm exec firebase firestore:backups:schedules:list --project sanem-ac70d
 ```
-
-Verified 2026-09-30: create/list from this machine as `havajusufi05@gmail.com` returned **403** on `sanem-prod` (no project access). Run the create command after Thrio has Owner, or while logged in as the project owner.
 
 ### Restore from a backup
 
@@ -81,16 +71,16 @@ A restore always creates a **new** database. You cannot restore into an existing
 1. List backups (location is `europe-west4` for this shop):
 
 ```bash
-pnpm exec firebase firestore:backups:list --location europe-west4 --project sanem-prod
+pnpm exec firebase firestore:backups:list --location europe-west4 --project sanem-ac70d
 ```
 
 2. Restore into a new id (example: `restored-YYYYMMDD`):
 
 ```bash
 pnpm exec firebase firestore:databases:restore \
-  --backup 'projects/sanem-prod/locations/europe-west4/backups/BACKUP_ID' \
+  --backup 'projects/sanem-ac70d/locations/europe-west4/backups/BACKUP_ID' \
   --database 'restored-YYYYMMDD' \
-  --project sanem-prod
+  --project sanem-ac70d
 ```
 
 3. Wait until the restore operation finishes. The new database is not readable until then.

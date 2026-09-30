@@ -1,12 +1,14 @@
 /**
- * Creates the daily Firestore backup schedule on sanem-prod.
- * Needs Owner (or equivalent) on the production project.
+ * Creates the daily Firestore backup schedule.
+ * Default project: sanem-ac70d (until sanem-prod exists).
+ * Override: FIREBASE_BACKUP_PROJECT=sanem-prod
  *
  * Usage: node scripts/create-backup-schedule.mjs
  */
 import { spawnSync } from "node:child_process";
 
-const project = "sanem-prod";
+// Temporary: sanem-prod does not exist yet. Switch back when prod is created.
+const project = process.env.FIREBASE_BACKUP_PROJECT || "sanem-ac70d";
 
 // Emulator env makes the CLI prompt and can block non-interactive runs.
 delete process.env.FIRESTORE_EMULATOR_HOST;
@@ -40,4 +42,4 @@ run([
 
 run(["firestore:backups:schedules:list", "--project", project]);
 
-console.log("Daily backup schedule is on sanem-prod (retention 28d).");
+console.log(`Daily backup schedule is on ${project} (retention 28d).`);
