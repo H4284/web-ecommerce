@@ -1,6 +1,12 @@
+packages:
+  - "."
+
+# pnpm 12 — allow native install scripts required on Vercel
 allowBuilds:
-  '@firebase/util': true
-  esbuild: true
-  protobufjs: true
   sharp: true
-  unrs-resolver: false
+  esbuild: true
+  re2: true
+  "@firebase/util": true
+  protobufjs: true
+  unrs-resolver: true
+  "@swc/core": true
