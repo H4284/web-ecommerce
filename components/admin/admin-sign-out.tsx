@@ -1,20 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { signOut } from "firebase/auth";
 import { adminCopy } from "@/content/admin";
-import { auth } from "@/lib/firebase/client";
 
 export function AdminSignOutButton() {
   const router = useRouter();
 
   async function onSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });
-    try {
-      await signOut(auth);
-    } catch {
-      // Cookie cleared; client sign-out is best-effort.
-    }
     router.push("/login");
     router.refresh();
   }

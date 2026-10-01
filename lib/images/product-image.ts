@@ -1,8 +1,7 @@
 import "server-only";
 import sharp from "sharp";
-import { getBucket } from "@/lib/firebase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import {
-  IMAGE_CACHE_CONTROL,
   IMAGE_WIDTHS,
   MAX_IMAGE_BYTES,
   nextImageIndex,
@@ -17,8 +16,34 @@ export class ImageTooLargeError extends Error {
   }
 }
 
-/** Strip EXIF, write WebP at 320/640/960/1280, upload to Storage.
- * Returns the product image path without width suffix.
+async function uploadWebpSizes(opts: {
+  bucket: "products" | "content";
+  objectBase: string;
+  buffer: Buffer;
+}): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const oriented = await sharp(opts.buffer).rotate().toBuffer();
+
+  for (const width of IMAGE_WIDTHS) {
+    const webp = await sharp(oriented)
+      .resize({ width, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    const objectPath = `${opts.objectBase}-${width}.webp`;
+    const { error } = await admin.storage
+      .from(opts.bucket)
+      .upload(objectPath, webp, {
+        contentType: "image/webp",
+        upsert: true,
+        cacheControl: "31536000",
+      });
+    if (error) throw error;
+  }
+}
+
+/** Strip EXIF, write WebP at 320/640/960/1280, upload to Supabase Storage.
+ * Returns the product image path without width suffix (`products/{id}/{index}`).
  */
 export async function resizeAndUploadProductImage(opts: {
   productId: string;
@@ -30,30 +55,17 @@ export async function resizeAndUploadProductImage(opts: {
     throw new ImageTooLargeError();
   }
 
-  const bucket = getBucket();
-  const basePath = `products/${opts.productId}/${opts.index}`;
+  const objectBase = `${opts.productId}/${opts.index}`;
+  await uploadWebpSizes({
+    bucket: "products",
+    objectBase,
+    buffer: opts.buffer,
+  });
 
-  // rotate() applies EXIF orientation and drops metadata on output.
-  const oriented = await sharp(opts.buffer).rotate().toBuffer();
-
-  for (const width of IMAGE_WIDTHS) {
-    const webp = await sharp(oriented)
-      .resize({ width, withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
-
-    const objectPath = `${basePath}-${width}.webp`;
-    await bucket.file(objectPath).save(webp, {
-      contentType: "image/webp",
-      resumable: false,
-      metadata: { cacheControl: IMAGE_CACHE_CONTROL },
-    });
-  }
-
-  return { path: basePath, alt: opts.alt };
+  return { path: `products/${objectBase}`, alt: opts.alt };
 }
 
-/** Shared helper for content/home images (unit 30). */
+/** Shared helper for content/home images. */
 export async function resizeAndUploadContentImage(opts: {
   prefix: string;
   index: number;
@@ -63,22 +75,26 @@ export async function resizeAndUploadContentImage(opts: {
     throw new ImageTooLargeError();
   }
 
-  const bucket = getBucket();
-  const basePath = `${opts.prefix}/${opts.index}`;
-  const oriented = await sharp(opts.buffer).rotate().toBuffer();
+  // prefix like `content/home` → bucket content, object `home/{index}`
+  const withoutContent = opts.prefix.replace(/^content\//, "");
+  const objectBase = `${withoutContent}/${opts.index}`;
+  await uploadWebpSizes({
+    bucket: "content",
+    objectBase,
+    buffer: opts.buffer,
+  });
 
-  for (const width of IMAGE_WIDTHS) {
-    const webp = await sharp(oriented)
-      .resize({ width, withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
+  return `content/${objectBase}`;
+}
 
-    await bucket.file(`${basePath}-${width}.webp`).save(webp, {
-      contentType: "image/webp",
-      resumable: false,
-      metadata: { cacheControl: IMAGE_CACHE_CONTROL },
-    });
-  }
-
-  return basePath;
+/** True if a 320px WebP exists for this logical path. */
+export async function productImageExists(path: string): Promise<boolean> {
+  const admin = getSupabaseAdmin();
+  const withoutPrefix = path.replace(/^products\//, "");
+  const objectPath = `${withoutPrefix}-320.webp`;
+  const { data, error } = await admin.storage
+    .from("products")
+    .download(objectPath);
+  if (error || !data) return false;
+  return true;
 }

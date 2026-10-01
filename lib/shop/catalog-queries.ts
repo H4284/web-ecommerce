@@ -1,6 +1,5 @@
 import "server-only";
-import type { Query } from "firebase-admin/firestore";
-import { db } from "@/lib/firebase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import {
   brandSchema,
   categorySchema,
@@ -11,6 +10,12 @@ import {
   type Product,
   type Variant,
 } from "@/lib/shop/schemas";
+import {
+  brandFromRow,
+  categoryFromRow,
+  productFromRow,
+  variantFromRow,
+} from "@/lib/shop/supabase-mappers";
 
 export type CategoryDoc = Category & { id: string };
 export type BrandDoc = Brand & { id: string };
@@ -35,7 +40,8 @@ function logBad(collection: string, id: string, err: unknown) {
   console.error(`[catalog] skip ${collection}/${id}: ${message}`);
 }
 
-function parseCategory(id: string, data: unknown): CategoryDoc | null {
+function parseCategory(raw: CategoryDoc): CategoryDoc | null {
+  const { id, ...data } = raw;
   const parsed = categorySchema.safeParse(data);
   if (!parsed.success) {
     logBad("categories", id, parsed.error.issues[0]?.message ?? parsed.error);
@@ -44,7 +50,8 @@ function parseCategory(id: string, data: unknown): CategoryDoc | null {
   return { id, ...parsed.data };
 }
 
-function parseBrand(id: string, data: unknown): BrandDoc | null {
+function parseBrand(raw: BrandDoc): BrandDoc | null {
+  const { id, ...data } = raw;
   const parsed = brandSchema.safeParse(data);
   if (!parsed.success) {
     logBad("brands", id, parsed.error.issues[0]?.message ?? parsed.error);
@@ -53,8 +60,21 @@ function parseBrand(id: string, data: unknown): BrandDoc | null {
   return { id, ...parsed.data };
 }
 
-function parseProduct(id: string, data: unknown): ProductDoc | null {
-  const parsed = productSchema.safeParse(data);
+function parseProduct(raw: ProductDoc): ProductDoc | null {
+  const { id, ...data } = raw;
+  // Postgres returns timestamptz; normalise to ISO string for zod.
+  const normalised = {
+    ...data,
+    createdAt:
+      typeof data.createdAt === "string"
+        ? data.createdAt
+        : new Date(data.createdAt as unknown as string).toISOString(),
+    updatedAt:
+      typeof data.updatedAt === "string"
+        ? data.updatedAt
+        : new Date(data.updatedAt as unknown as string).toISOString(),
+  };
+  const parsed = productSchema.safeParse(normalised);
   if (!parsed.success) {
     logBad("products", id, parsed.error.issues[0]?.message ?? parsed.error);
     return null;
@@ -62,7 +82,8 @@ function parseProduct(id: string, data: unknown): ProductDoc | null {
   return { id, ...parsed.data };
 }
 
-function parseVariant(id: string, data: unknown): VariantDoc | null {
+function parseVariant(raw: VariantDoc): VariantDoc | null {
+  const { id, ...data } = raw;
   const parsed = variantSchema.safeParse(data);
   if (!parsed.success) {
     logBad("variants", id, parsed.error.issues[0]?.message ?? parsed.error);
@@ -81,102 +102,133 @@ function normalizeSearchToken(q: string): string {
 }
 
 async function loadVariants(productId: string): Promise<VariantDoc[]> {
-  const snap = await db.collection("products").doc(productId).collection("variants").get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("variants")
+    .select("*")
+    .eq("product_id", productId);
+  if (error) throw error;
   const out: VariantDoc[] = [];
-  for (const doc of snap.docs) {
-    const v = parseVariant(doc.id, doc.data());
+  for (const row of data ?? []) {
+    const v = parseVariant(variantFromRow(row as Record<string, unknown>));
     if (v) out.push(v);
   }
   return out;
 }
 
 export async function getCategoryTree(): Promise<CategoryTreeNode[]> {
-  const snap = await db.collection("categories").where("isActive", "==", true).get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("categories")
+    .select("*")
+    .eq("is_active", true);
+  if (error) throw error;
   const all: CategoryDoc[] = [];
-  for (const doc of snap.docs) {
-    const cat = parseCategory(doc.id, doc.data());
+  for (const row of data ?? []) {
+    const cat = parseCategory(categoryFromRow(row as Record<string, unknown>));
     if (cat) all.push(cat);
   }
   all.sort((a, b) => a.order - b.order);
   const roots = all.filter((c) => c.parentId == null);
   return roots.map((root) => ({
     ...root,
-    children: all.filter((c) => c.parentId === root.id).sort((a, b) => a.order - b.order),
+    children: all
+      .filter((c) => c.parentId === root.id)
+      .sort((a, b) => a.order - b.order),
   }));
 }
 
 export async function getCategoryBySlug(slug: string): Promise<CategoryDoc | null> {
-  const snap = await db
-    .collection("categories")
-    .where("slug", "==", slug)
-    .where("isActive", "==", true)
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("categories")
+    .select("*")
+    .eq("slug", slug)
+    .eq("is_active", true)
     .limit(1)
-    .get();
-  const doc = snap.docs[0];
-  if (!doc) return null;
-  return parseCategory(doc.id, doc.data());
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return parseCategory(categoryFromRow(data as Record<string, unknown>));
 }
 
 export async function getBrandBySlug(slug: string): Promise<BrandDoc | null> {
-  const snap = await db
-    .collection("brands")
-    .where("slug", "==", slug)
-    .where("isActive", "==", true)
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("brands")
+    .select("*")
+    .eq("slug", slug)
+    .eq("is_active", true)
     .limit(1)
-    .get();
-  const doc = snap.docs[0];
-  if (!doc) return null;
-  return parseBrand(doc.id, doc.data());
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return parseBrand(brandFromRow(data as Record<string, unknown>));
 }
 
 export async function getBrandById(id: string): Promise<BrandDoc | null> {
-  const snap = await db.collection("brands").doc(id).get();
-  if (!snap.exists) return null;
-  const brand = parseBrand(snap.id, snap.data());
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("brands")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const brand = parseBrand(brandFromRow(data as Record<string, unknown>));
   if (!brand || !brand.isActive) return null;
   return brand;
 }
 
-export async function getProductBySlug(slug: string): Promise<ProductWithVariants | null> {
-  const snap = await db
-    .collection("products")
-    .where("slug", "==", slug)
-    .where("status", "==", "active")
+export async function getProductBySlug(
+  slug: string,
+): Promise<ProductWithVariants | null> {
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("products")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "active")
     .limit(1)
-    .get();
-  const doc = snap.docs[0];
-  if (!doc) return null;
-  const product = parseProduct(doc.id, doc.data());
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const product = parseProduct(productFromRow(data as Record<string, unknown>));
   if (!product) return null;
-  const variants = await loadVariants(doc.id);
+  const variants = await loadVariants(product.id);
   return { ...product, variants };
 }
 
 async function categoryScopeIds(categoryId: string): Promise<string[]> {
+  const admin = getSupabaseAdmin();
   const ids = [categoryId];
-  const children = await db
-    .collection("categories")
-    .where("parentId", "==", categoryId)
-    .where("isActive", "==", true)
-    .get();
-  for (const doc of children.docs) {
-    if (ids.length >= 30) break;
-    ids.push(doc.id);
+  const { data, error } = await admin
+    .from("categories")
+    .select("id")
+    .eq("parent_id", categoryId)
+    .eq("is_active", true)
+    .limit(29);
+  if (error) throw error;
+  for (const row of data ?? []) {
+    ids.push(String((row as { id: string }).id));
   }
   return ids.slice(0, 30);
 }
 
-function applySort(query: Query, sort: ProductSort): Query {
+function sortProducts(items: ProductDoc[], sort: ProductSort): ProductDoc[] {
+  const copy = [...items];
   switch (sort) {
     case "price-asc":
-      return query.orderBy("minPriceCents", "asc");
+      return copy.sort((a, b) => a.minPriceCents - b.minPriceCents);
     case "price-desc":
-      return query.orderBy("minPriceCents", "desc");
+      return copy.sort((a, b) => b.minPriceCents - a.minPriceCents);
     case "best-sellers":
-      return query.where("isBestSeller", "==", true).orderBy("createdAt", "desc");
+      return copy
+        .filter((p) => p.isBestSeller)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     case "newest":
     default:
-      return query.orderBy("createdAt", "desc");
+      return copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 }
 
@@ -189,24 +241,26 @@ export async function listProducts(input: ListProductsInput = {}): Promise<{
   const page = Math.max(1, input.page ?? 1);
   const pageSize = Math.min(48, Math.max(1, input.pageSize ?? 12));
   const sort: ProductSort = input.sort ?? "newest";
+  const admin = getSupabaseAdmin();
 
-  let query: Query = db.collection("products").where("status", "==", "active");
+  let query = admin.from("products").select("*").eq("status", "active");
 
   if (input.categoryId) {
     const ids = await categoryScopeIds(input.categoryId);
-    query = query.where("categoryIds", "array-contains-any", ids);
+    query = query.overlaps("category_ids", ids);
   } else if (input.brandId) {
-    query = query.where("brandId", "==", input.brandId);
+    query = query.eq("brand_id", input.brandId);
   }
 
-  query = applySort(query, sort);
+  const { data, error } = await query;
+  if (error) throw error;
 
-  const snap = await query.get();
-  const items: ProductDoc[] = [];
-  for (const doc of snap.docs) {
-    const product = parseProduct(doc.id, doc.data());
+  let items: ProductDoc[] = [];
+  for (const row of data ?? []) {
+    const product = parseProduct(productFromRow(row as Record<string, unknown>));
     if (product) items.push(product);
   }
+  items = sortProducts(items, sort);
 
   const start = (page - 1) * pageSize;
   return {
@@ -220,33 +274,42 @@ export async function listProducts(input: ListProductsInput = {}): Promise<{
 export async function searchProducts(q: string, limit = 8): Promise<ProductDoc[]> {
   const token = normalizeSearchToken(q);
   if (token.length < 2) return [];
-
-  const snap = await db
-    .collection("products")
-    .where("status", "==", "active")
-    .where("searchTokens", "array-contains", token)
-    .limit(Math.min(50, Math.max(1, limit)))
-    .get();
-
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("products")
+    .select("*")
+    .eq("status", "active")
+    .contains("search_tokens", [token])
+    .limit(Math.min(50, Math.max(1, limit)));
+  if (error) throw error;
   const items: ProductDoc[] = [];
-  for (const doc of snap.docs) {
-    const product = parseProduct(doc.id, doc.data());
+  for (const row of data ?? []) {
+    const product = parseProduct(productFromRow(row as Record<string, unknown>));
     if (product) items.push(product);
   }
   return items;
 }
 
-export async function getRelated(product: ProductDoc, limit = 8): Promise<ProductDoc[]> {
+export async function getRelated(
+  product: ProductDoc,
+  limit = 8,
+): Promise<ProductDoc[]> {
   const max = Math.min(8, Math.max(1, limit));
   const seen = new Set<string>([product.id]);
   const out: ProductDoc[] = [];
+  const admin = getSupabaseAdmin();
 
   for (const id of product.relatedIds) {
     if (out.length >= max) break;
     if (seen.has(id)) continue;
-    const snap = await db.collection("products").doc(id).get();
-    if (!snap.exists) continue;
-    const parsed = parseProduct(snap.id, snap.data());
+    const { data, error } = await admin
+      .from("products")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) continue;
+    const parsed = parseProduct(productFromRow(data as Record<string, unknown>));
     if (!parsed || parsed.status !== "active") continue;
     seen.add(parsed.id);
     out.push(parsed);
@@ -271,32 +334,36 @@ export async function getRelated(product: ProductDoc, limit = 8): Promise<Produc
 }
 
 export async function getBestSellers(n = 8): Promise<ProductDoc[]> {
-  const snap = await db
-    .collection("products")
-    .where("status", "==", "active")
-    .where("isBestSeller", "==", true)
-    .orderBy("createdAt", "desc")
-    .limit(Math.min(24, Math.max(1, n)))
-    .get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("products")
+    .select("*")
+    .eq("status", "active")
+    .eq("is_best_seller", true)
+    .order("created_at", { ascending: false })
+    .limit(Math.min(24, Math.max(1, n)));
+  if (error) throw error;
   const items: ProductDoc[] = [];
-  for (const doc of snap.docs) {
-    const product = parseProduct(doc.id, doc.data());
+  for (const row of data ?? []) {
+    const product = parseProduct(productFromRow(row as Record<string, unknown>));
     if (product) items.push(product);
   }
   return items;
 }
 
 export async function getNewProducts(n = 8): Promise<ProductDoc[]> {
-  const snap = await db
-    .collection("products")
-    .where("status", "==", "active")
-    .where("isNew", "==", true)
-    .orderBy("createdAt", "desc")
-    .limit(Math.min(24, Math.max(1, n)))
-    .get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("products")
+    .select("*")
+    .eq("status", "active")
+    .eq("is_new", true)
+    .order("created_at", { ascending: false })
+    .limit(Math.min(24, Math.max(1, n)));
+  if (error) throw error;
   const items: ProductDoc[] = [];
-  for (const doc of snap.docs) {
-    const product = parseProduct(doc.id, doc.data());
+  for (const row of data ?? []) {
+    const product = parseProduct(productFromRow(row as Record<string, unknown>));
     if (product) items.push(product);
   }
   return items;
@@ -310,10 +377,38 @@ export async function getOffers(n = 8): Promise<ProductDoc[]> {
     const variants = await loadVariants(product.id);
     const onSale = variants.some(
       (v) =>
-        typeof v.compareAtCents === "number" &&
-        v.compareAtCents > v.priceCents,
+        typeof v.compareAtCents === "number" && v.compareAtCents > v.priceCents,
     );
     if (onSale) offers.push(product);
   }
   return offers;
+}
+
+/** Used by cart/order paths. */
+export async function getProductById(id: string): Promise<ProductDoc | null> {
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("products")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return parseProduct(productFromRow(data as Record<string, unknown>));
+}
+
+export async function getVariant(
+  productId: string,
+  variantId: string,
+): Promise<VariantDoc | null> {
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("variants")
+    .select("*")
+    .eq("product_id", productId)
+    .eq("id", variantId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return parseVariant(variantFromRow(data as Record<string, unknown>));
 }

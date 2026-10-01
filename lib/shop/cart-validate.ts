@@ -1,5 +1,4 @@
 import "server-only";
-import { db } from "@/lib/firebase/admin";
 import { mergeCartLines, type CartLineInput } from "@/lib/shop/cart-schema";
 import {
   discountSchema,
@@ -8,12 +7,8 @@ import {
   type DiscountResult,
 } from "@/lib/shop/discounts";
 import { getShopSettingsUncached } from "@/lib/shop/settings-queries";
-import {
-  productSchema,
-  variantSchema,
-  type Product,
-  type Variant,
-} from "@/lib/shop/schemas";
+import { getProductById, getVariant } from "@/lib/shop/catalog-queries";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { variantLabel } from "@/lib/shop/variants";
 import { shopCopy } from "@/content/shop";
 import type { DeliveryMethod } from "@/lib/shop/settings-schema";
@@ -40,42 +35,36 @@ export type CartValidateResult = {
   deliveryMethods: DeliveryMethod[];
 };
 
-type ProductDoc = Product & { id: string };
-type VariantDoc = Variant & { id: string };
-
-async function loadProduct(productId: string): Promise<ProductDoc | null> {
-  const snap = await db.collection("products").doc(productId).get();
-  if (!snap.exists) return null;
-  const parsed = productSchema.safeParse(snap.data());
-  if (!parsed.success) return null;
-  return { id: snap.id, ...parsed.data };
-}
-
-async function loadVariant(
-  productId: string,
-  variantId: string,
-): Promise<VariantDoc | null> {
-  const snap = await db
-    .collection("products")
-    .doc(productId)
-    .collection("variants")
-    .doc(variantId)
-    .get();
-  if (!snap.exists) return null;
-  const parsed = variantSchema.safeParse(snap.data());
-  if (!parsed.success) return null;
-  return { id: snap.id, ...parsed.data };
-}
-
 async function loadDiscount(code: string): Promise<DiscountDoc | null> {
-  const snap = await db.collection("discounts").doc(code.toUpperCase()).get();
-  if (!snap.exists) return null;
-  const parsed = discountSchema.safeParse(snap.data());
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("discounts")
+    .select("*")
+    .eq("code", code.toUpperCase())
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const parsed = discountSchema.safeParse({
+    type: data.type,
+    value: data.value,
+    minSubtotalCents: data.min_subtotal_cents,
+    startsAt:
+      typeof data.starts_at === "string"
+        ? data.starts_at
+        : new Date(data.starts_at as string).toISOString(),
+    endsAt:
+      typeof data.ends_at === "string"
+        ? data.ends_at
+        : new Date(data.ends_at as string).toISOString(),
+    usageLimit: data.usage_limit,
+    usedCount: data.used_count,
+    active: data.active,
+  });
   if (!parsed.success) return null;
   return parsed.data;
 }
 
-/** Uncached cart validation against live Firestore prices and stock. */
+/** Uncached cart validation against live Supabase prices and stock. */
 export async function validateCart(input: {
   lines: CartLineInput[];
   discountCode?: string | null;
@@ -90,13 +79,13 @@ export async function validateCart(input: {
   const lines: ValidatedCartLine[] = [];
 
   for (const row of merged) {
-    const product = await loadProduct(row.productId);
+    const product = await getProductById(row.productId);
     if (!product || product.status !== "active") {
       messages.push(shopCopy.cartProductUnavailable);
       continue;
     }
 
-    const variant = await loadVariant(row.productId, row.variantId);
+    const variant = await getVariant(row.productId, row.variantId);
     if (!variant) {
       messages.push(shopCopy.cartVariantMissing);
       continue;

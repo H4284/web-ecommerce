@@ -40,7 +40,9 @@ export const metadata: Metadata = {
 };
 
 const storageOrigin =
-  process.env.NEXT_PUBLIC_STORAGE_ORIGIN ?? "https://firebasestorage.googleapis.com";
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ??
+  process.env.NEXT_PUBLIC_STORAGE_ORIGIN ??
+  "https://firebasestorage.googleapis.com";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

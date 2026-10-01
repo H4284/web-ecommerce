@@ -1,14 +1,15 @@
 import "server-only";
 import { updateTag } from "next/cache";
 import { z } from "zod";
-import { db, getBucket } from "@/lib/firebase/admin";
 import { adminAction } from "@/lib/shop/admin";
 import {
   ImageTooLargeError,
+  productImageExists,
   resizeAndUploadProductImage,
 } from "@/lib/images/product-image";
 import { MAX_IMAGE_BYTES, nextImageIndex } from "@/lib/images/widths";
-import { productSchema } from "@/lib/shop/schemas";
+import { productFromRow, productToRow } from "@/lib/shop/supabase-mappers";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 const metaSchema = z.object({
   productId: z.string().min(1),
@@ -33,22 +34,23 @@ export async function uploadAdminProductImage(opts: {
         throw new ImageTooLargeError();
       }
 
-      const ref = db.collection("products").doc(data.productId);
-      const snap = await ref.get();
-      if (!snap.exists) throw new Error("Product not found");
+      const admin = getSupabaseAdmin();
+      const { data: row, error } = await admin
+        .from("products")
+        .select("*")
+        .eq("id", data.productId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!row) throw new Error("Product not found");
 
-      const parsed = productSchema.safeParse(snap.data());
-      if (!parsed.success) throw new Error("Invalid product");
-
-      const images = parsed.data.images ?? [];
+      const product = productFromRow(row as Record<string, unknown>);
+      const images = product.images ?? [];
       let index = nextImageIndex(images);
       let replacePlaceholder = false;
 
       if (images.length === 1) {
         const only = images[0]!;
-        const [exists] = await getBucket()
-          .file(`${only.path}-320.webp`)
-          .exists();
+        const exists = await productImageExists(only.path);
         if (!exists) {
           const match = /\/(\d+)$/.exec(only.path);
           index = match ? Number(match[1]) : 0;
@@ -64,13 +66,16 @@ export async function uploadAdminProductImage(opts: {
       });
 
       const nextImages = replacePlaceholder ? [image] : [...images, image];
-      await ref.set(
-        {
-          images: nextImages,
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true },
-      );
+      const next = {
+        ...product,
+        images: nextImages,
+        updatedAt: new Date().toISOString(),
+      };
+      const { error: upErr } = await admin
+        .from("products")
+        .update(productToRow(next))
+        .eq("id", data.productId);
+      if (upErr) throw upErr;
       updateTag("catalog");
       return image;
     },

@@ -1,16 +1,20 @@
 import "server-only";
 import type { MetadataRoute } from "next";
-import { db } from "@/lib/firebase/admin";
 import {
   isLegalPlaceholder,
   LEGAL_PAGES,
   readLegalMarkdown,
 } from "@/lib/shop/legal-pages";
-import { brandSchema, categorySchema, productSchema } from "@/lib/shop/schemas";
 import { isPrivatePath } from "@/lib/shop/seo-paths";
 import { absoluteUrl } from "@/lib/shop/site-url";
+import {
+  brandFromRow,
+  categoryFromRow,
+  productFromRow,
+} from "@/lib/shop/supabase-mappers";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-/** Build the public sitemap from Firestore + legal pages. */
+/** Build the public sitemap from Supabase + legal pages. */
 export async function buildSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [];
   const seen = new Set<string>();
@@ -38,32 +42,32 @@ export async function buildSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     add(`/${page.slug}`);
   }
 
+  const admin = getSupabaseAdmin();
   const [products, categories, brands] = await Promise.all([
-    db.collection("products").where("status", "==", "active").get(),
-    db.collection("categories").where("isActive", "==", true).get(),
-    db.collection("brands").where("isActive", "==", true).get(),
+    admin.from("products").select("*").eq("status", "active"),
+    admin.from("categories").select("*").eq("is_active", true),
+    admin.from("brands").select("*").eq("is_active", true),
   ]);
+  if (products.error) throw products.error;
+  if (categories.error) throw categories.error;
+  if (brands.error) throw brands.error;
 
-  for (const doc of categories.docs) {
-    const parsed = categorySchema.safeParse(doc.data());
-    if (!parsed.success) continue;
-    add(`/categories/${parsed.data.slug}`, new Date());
+  for (const row of categories.data ?? []) {
+    const parsed = categoryFromRow(row as Record<string, unknown>);
+    add(`/categories/${parsed.slug}`, new Date());
   }
 
-  // Brand pages are deferred (plan: brands as pages = no); URLs 301 to collection.
-  for (const doc of brands.docs) {
-    const parsed = brandSchema.safeParse(doc.data());
-    if (!parsed.success) continue;
-    add(`/brands/${parsed.data.slug}`, new Date());
+  for (const row of brands.data ?? []) {
+    const parsed = brandFromRow(row as Record<string, unknown>);
+    add(`/brands/${parsed.slug}`, new Date());
   }
 
-  for (const doc of products.docs) {
-    const parsed = productSchema.safeParse(doc.data());
-    if (!parsed.success) continue;
-    const updated = parsed.data.updatedAt
-      ? new Date(parsed.data.updatedAt)
+  for (const row of products.data ?? []) {
+    const parsed = productFromRow(row as Record<string, unknown>);
+    const updated = parsed.updatedAt
+      ? new Date(parsed.updatedAt)
       : new Date();
-    add(`/products/${parsed.data.slug}`, updated);
+    add(`/products/${parsed.slug}`, updated);
   }
 
   return entries;

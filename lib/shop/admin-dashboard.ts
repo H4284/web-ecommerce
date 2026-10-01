@@ -1,7 +1,6 @@
 import "server-only";
-import { AggregateField } from "firebase-admin/firestore";
-import { db } from "@/lib/firebase/admin";
 import { requireAdmin } from "@/lib/shop/auth";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export const LOW_STOCK_THRESHOLD = 5;
 
@@ -58,21 +57,20 @@ async function periodStats(
   fromIso: string,
   nowIso: string,
 ): Promise<DashboardPeriodStats> {
-  // status in + createdAt range — composite index in firestore.indexes.json
-  const snap = await db
-    .collection("orders")
-    .where("status", "in", [...NON_CANCELLED])
-    .where("createdAt", ">=", fromIso)
-    .where("createdAt", "<=", nowIso)
-    .aggregate({
-      orders: AggregateField.count(),
-      revenueCents: AggregateField.sum("totalCents"),
-    })
-    .get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("orders")
+    .select("total_cents, status, created_at")
+    .in("status", [...NON_CANCELLED])
+    .gte("created_at", fromIso)
+    .lte("created_at", nowIso);
+  if (error) throw error;
 
-  const data = snap.data();
-  const orders = Number(data.orders ?? 0);
-  const revenueCents = Math.round(Number(data.revenueCents ?? 0));
+  const orders = data?.length ?? 0;
+  const revenueCents = (data ?? []).reduce(
+    (sum, row) => sum + Number(row.total_cents ?? 0),
+    0,
+  );
   return {
     orders,
     revenueCents,
@@ -81,22 +79,26 @@ async function periodStats(
 }
 
 async function latestOrders(limit = 10): Promise<DashboardOrderRow[]> {
-  const snap = await db
-    .collection("orders")
-    .orderBy("createdAt", "desc")
-    .limit(limit)
-    .get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("orders")
+    .select("id, number, created_at, customer, total_cents, status")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
 
-  return snap.docs.map((doc) => {
-    const d = doc.data();
-    const customer = (d.customer ?? {}) as { name?: string };
+  return (data ?? []).map((row) => {
+    const customer = (row.customer ?? {}) as { name?: string };
     return {
-      id: doc.id,
-      number: String(d.number ?? ""),
-      createdAt: String(d.createdAt ?? ""),
+      id: String(row.id),
+      number: String(row.number ?? ""),
+      createdAt:
+        typeof row.created_at === "string"
+          ? row.created_at
+          : new Date(row.created_at as string).toISOString(),
       customerName: String(customer.name ?? ""),
-      totalCents: Number(d.totalCents ?? 0),
-      status: String(d.status ?? ""),
+      totalCents: Number(row.total_cents ?? 0),
+      status: String(row.status ?? ""),
     };
   });
 }
@@ -104,25 +106,22 @@ async function latestOrders(limit = 10): Promise<DashboardOrderRow[]> {
 async function lowStockProducts(
   threshold = LOW_STOCK_THRESHOLD,
 ): Promise<DashboardLowStockRow[]> {
-  const snap = await db
-    .collection("products")
-    .where("totalStock", "<=", threshold)
-    .orderBy("totalStock", "asc")
-    .limit(20)
-    .get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("products")
+    .select("id, name, slug, total_stock, status")
+    .lte("total_stock", threshold)
+    .neq("status", "archived")
+    .order("total_stock", { ascending: true })
+    .limit(20);
+  if (error) throw error;
 
-  const rows: DashboardLowStockRow[] = [];
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    if (d.status === "archived") continue;
-    rows.push({
-      id: doc.id,
-      name: String(d.name ?? ""),
-      slug: String(d.slug ?? ""),
-      totalStock: Number(d.totalStock ?? 0),
-    });
-  }
-  return rows;
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.name ?? ""),
+    slug: String(row.slug ?? ""),
+    totalStock: Number(row.total_stock ?? 0),
+  }));
 }
 
 /** Admin home: period cards, latest orders, low stock. */

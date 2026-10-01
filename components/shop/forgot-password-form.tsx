@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { sendPasswordResetEmail } from "firebase/auth";
 import { shopCopy } from "@/content/shop";
-import { auth } from "@/lib/firebase/client";
+import { createSupabaseBrowser } from "@/lib/supabase/browser";
 import {
   forgotPasswordSchema,
   type ForgotPasswordValues,
@@ -27,7 +26,10 @@ export function ForgotPasswordForm() {
 
   async function onSubmit(values: ForgotPasswordValues) {
     try {
-      await sendPasswordResetEmail(auth, values.email);
+      const supabase = createSupabaseBrowser();
+      await supabase.auth.resetPasswordForEmail(values.email, {
+        redirectTo: `${window.location.origin}/login`,
+      });
       setSent(true);
     } catch {
       // Same message either way — do not reveal whether the email exists.

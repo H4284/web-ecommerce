@@ -350,9 +350,9 @@ export function ProductForm({ product, brands, categories }: ProductFormProps) {
             className="border border-border bg-surface px-3 py-2 font-mono text-sm"
           />
         </label>
-        <div className="flex flex-col gap-1 text-sm">
+        <div className="flex min-w-0 flex-col gap-1 text-sm">
           <span>{adminCopy.productPreview}</span>
-          <div className="prose prose-sm max-w-none border border-border bg-surface p-3 text-ink">
+          <div className="min-w-0 overflow-hidden border border-border bg-surface p-3 text-ink prose prose-sm max-w-none break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_*]:break-words">
             <ReactMarkdown skipHtml>{description || "—"}</ReactMarkdown>
           </div>
         </div>

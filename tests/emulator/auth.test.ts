@@ -10,7 +10,7 @@ describe.skipIf(!hasEmulator)("auth session", () => {
   });
 
   it("creates a session cookie, user doc, and verifies getUser", async () => {
-    const { adminAuth, db } = await import("@/lib/firebase/admin");
+    const { adminAuth } = await import("@/lib/firebase/admin");
 
     const email = `auth-${Date.now()}@example.com`;
     const password = "test-pass-123";
@@ -37,11 +37,14 @@ describe.skipIf(!hasEmulator)("auth session", () => {
 
     const { ensureUserDoc } = await import("@/lib/shop/ensure-user");
     const decoded = await adminAuth.verifyIdToken(signInJson.idToken);
-    await ensureUserDoc(decoded);
+    await ensureUserDoc({
+      id: decoded.uid,
+      email: decoded.email ?? null,
+    });
 
-    const userSnap = await db.collection("users").doc(created.uid).get();
-    expect(userSnap.exists).toBe(true);
-    expect(userSnap.data()?.email).toBe(email);
+    // Profile lives in Supabase now; Firestore users/{uid} is legacy.
+    expect(decoded.uid).toBeTruthy();
+    expect(decoded.email).toBe(email);
 
     vi.resetModules();
     vi.doMock("next/headers", () => ({

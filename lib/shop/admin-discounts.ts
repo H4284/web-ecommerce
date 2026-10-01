@@ -1,6 +1,5 @@
 import "server-only";
 import { updateTag } from "next/cache";
-import { db } from "@/lib/firebase/admin";
 import { adminAction } from "@/lib/shop/admin";
 import { requireAdmin } from "@/lib/shop/auth";
 import {
@@ -9,17 +8,40 @@ import {
   type AdminDiscount,
 } from "@/lib/shop/admin-discount-schema";
 import { discountSchema, type DiscountDoc } from "@/lib/shop/discounts";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export type { AdminDiscount };
 
+function mapDiscount(row: Record<string, unknown>): AdminDiscount | null {
+  const parsed = discountSchema.safeParse({
+    type: row.type,
+    value: row.value,
+    minSubtotalCents: row.min_subtotal_cents,
+    startsAt:
+      typeof row.starts_at === "string"
+        ? row.starts_at
+        : new Date(row.starts_at as string).toISOString(),
+    endsAt:
+      typeof row.ends_at === "string"
+        ? row.ends_at
+        : new Date(row.ends_at as string).toISOString(),
+    usageLimit: row.usage_limit,
+    usedCount: row.used_count,
+    active: row.active,
+  });
+  if (!parsed.success) return null;
+  return { code: String(row.code), ...parsed.data };
+}
+
 export async function listAdminDiscounts(): Promise<AdminDiscount[]> {
   await requireAdmin();
-  const snap = await db.collection("discounts").get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin.from("discounts").select("*");
+  if (error) throw error;
   const items: AdminDiscount[] = [];
-  for (const doc of snap.docs) {
-    const parsed = discountSchema.safeParse(doc.data());
-    if (!parsed.success) continue;
-    items.push({ code: doc.id, ...parsed.data });
+  for (const row of data ?? []) {
+    const mapped = mapDiscount(row as Record<string, unknown>);
+    if (mapped) items.push(mapped);
   }
   return items.sort((a, b) => a.code.localeCompare(b.code));
 }
@@ -29,11 +51,15 @@ export async function getAdminDiscount(
 ): Promise<AdminDiscount | null> {
   await requireAdmin();
   const id = code.trim().toUpperCase();
-  const snap = await db.collection("discounts").doc(id).get();
-  if (!snap.exists) return null;
-  const parsed = discountSchema.safeParse(snap.data());
-  if (!parsed.success) return null;
-  return { code: snap.id, ...parsed.data };
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("discounts")
+    .select("*")
+    .eq("code", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return mapDiscount(data as Record<string, unknown>);
 }
 
 /** Create or update. usedCount is preserved on update; 0 on create. */
@@ -44,10 +70,14 @@ export async function saveAdminDiscount(input: unknown) {
     target: (d) => `discounts/${d.code}`,
     input,
     fn: async (data) => {
-      const ref = db.collection("discounts").doc(data.code);
-      const existing = await ref.get();
-      const usedCount = existing.exists
-        ? Number(existing.data()?.usedCount ?? 0)
+      const admin = getSupabaseAdmin();
+      const { data: existing } = await admin
+        .from("discounts")
+        .select("used_count")
+        .eq("code", data.code)
+        .maybeSingle();
+      const usedCount = existing
+        ? Number(existing.used_count ?? 0)
         : 0;
 
       const doc: DiscountDoc = discountSchema.parse({
@@ -61,7 +91,19 @@ export async function saveAdminDiscount(input: unknown) {
         active: data.active,
       });
 
-      await ref.set(doc, { merge: false });
+      const { error } = await admin.from("discounts").upsert({
+        code: data.code,
+        type: doc.type,
+        value: doc.value,
+        min_subtotal_cents: doc.minSubtotalCents,
+        starts_at: doc.startsAt,
+        ends_at: doc.endsAt,
+        usage_limit: doc.usageLimit,
+        used_count: doc.usedCount,
+        active: doc.active,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
       updateTag("catalog");
       return { code: data.code, usedCount: doc.usedCount };
     },
@@ -75,10 +117,22 @@ export async function setAdminDiscountActive(input: unknown) {
     target: (d) => `discounts/${d.code}`,
     input,
     fn: async (data) => {
-      const ref = db.collection("discounts").doc(data.code);
-      const snap = await ref.get();
-      if (!snap.exists) throw new Error("Discount not found");
-      await ref.update({ active: data.active });
+      const admin = getSupabaseAdmin();
+      const { data: existing, error: gErr } = await admin
+        .from("discounts")
+        .select("code")
+        .eq("code", data.code)
+        .maybeSingle();
+      if (gErr) throw gErr;
+      if (!existing) throw new Error("Discount not found");
+      const { error } = await admin
+        .from("discounts")
+        .update({
+          active: data.active,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("code", data.code);
+      if (error) throw error;
       updateTag("catalog");
       return { code: data.code, active: data.active };
     },

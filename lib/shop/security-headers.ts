@@ -7,6 +7,8 @@ export function buildContentSecurityPolicy(): string {
   const connect = [
     "'self'",
     "https://challenges.cloudflare.com",
+    "https://*.supabase.co",
+    "wss://*.supabase.co",
     "https://*.googleapis.com",
     "https://identitytoolkit.googleapis.com",
     "https://securetoken.googleapis.com",
@@ -66,6 +68,8 @@ export const SECRET_ENV_NAMES = [
   "TURNSTILE_SECRET_KEY",
   "RESEND_API_KEY",
   "SANITY_API_READ_TOKEN",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_DB_PASSWORD",
   "FIREBASE_PRIVATE_KEY",
   "GOOGLE_APPLICATION_CREDENTIALS",
 ] as const;

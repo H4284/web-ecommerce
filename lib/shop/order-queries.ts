@@ -1,5 +1,5 @@
 import "server-only";
-import { db } from "@/lib/firebase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export type ThankYouOrderLine = {
   variantId: string;
@@ -41,20 +41,37 @@ export type ThankYouOrder = {
 export async function getOrderForThankYou(
   orderId: string,
 ): Promise<ThankYouOrder | null> {
-  const snap = await db.collection("orders").doc(orderId).get();
-  if (!snap.exists) return null;
-  const data = snap.data()!;
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const discount = data.discount as { amountCents?: number } | null;
+  const linesRaw = (data.lines as Array<Record<string, unknown>>) ?? [];
+
   return {
-    id: snap.id,
+    id: data.id,
     number: String(data.number),
     status: String(data.status),
-    paymentMethodId: String(data.paymentMethodId),
-    paymentStatus: String(data.paymentStatus),
-    lines: (data.lines as ThankYouOrderLine[]) ?? [],
-    subtotalCents: Number(data.subtotalCents),
-    discountAmountCents: Number(data.discount?.amountCents ?? 0),
-    deliveryCents: Number(data.deliveryCents),
-    totalCents: Number(data.totalCents),
+    paymentMethodId: String(data.payment_method_id),
+    paymentStatus: String(data.payment_status),
+    lines: linesRaw.map((l) => ({
+      variantId: String(l.variantId),
+      productId: String(l.productId),
+      sku: String(l.sku),
+      name: String(l.name),
+      variantLabel: String(l.variantLabel),
+      priceCents: Number(l.priceCents),
+      qty: Number(l.qty),
+    })),
+    subtotalCents: Number(data.subtotal_cents),
+    discountAmountCents: Number(discount?.amountCents ?? 0),
+    deliveryCents: Number(data.delivery_cents),
+    totalCents: Number(data.total_cents),
     delivery: data.delivery as ThankYouOrder["delivery"],
     customer: data.customer as ThankYouOrder["customer"],
   };

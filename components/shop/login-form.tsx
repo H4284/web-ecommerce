@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signInWithEmailAndPassword } from "firebase/auth";
 import { shopCopy } from "@/content/shop";
-import { auth } from "@/lib/firebase/client";
+import { createSupabaseBrowser } from "@/lib/supabase/browser";
 import { safeNextPath } from "@/lib/shop/auth-path";
 import {
   loginFormSchema,
@@ -23,7 +22,6 @@ function fieldMessage(code: string | undefined): string {
 }
 
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNextPath(searchParams.get("next"), "/account");
   const [formError, setFormError] = useState<string | null>(null);
@@ -47,17 +45,23 @@ export function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     setFormError(null);
     try {
-      const cred = await signInWithEmailAndPassword(
-        auth,
-        values.email,
-        values.password,
-      );
-      const idToken = await cred.user.getIdToken();
+      const supabase = createSupabaseBrowser();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
+      if (error || !data.session) {
+        console.error("[login]", error?.message ?? "no session");
+        setFormError(shopCopy.authWrongPassword);
+        setTurnstileReset((n) => n + 1);
+        return;
+      }
       const res = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          idToken,
+          accessToken: data.session.access_token,
+          refreshToken: data.session.refresh_token,
           turnstileToken: values.turnstileToken,
           website: values.website ?? "",
         }),
@@ -67,29 +71,16 @@ export function LoginForm() {
         setTurnstileReset((n) => n + 1);
         return;
       }
-      router.replace(next);
-      router.refresh();
-    } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: string }).code)
-          : "";
-      if (
-        code === "auth/wrong-password" ||
-        code === "auth/user-not-found" ||
-        code === "auth/invalid-credential" ||
-        code === "auth/invalid-login-credentials"
-      ) {
-        setFormError(shopCopy.authWrongPassword);
-      } else {
-        setFormError(shopCopy.authGenericError);
-      }
+      window.location.assign(next);
+    } catch {
+      setFormError(shopCopy.authGenericError);
       setTurnstileReset((n) => n + 1);
     }
   }
 
   return (
     <form
+      method="post"
       onSubmit={handleSubmit(onSubmit)}
       className="mx-auto flex w-full max-w-md flex-col gap-4"
       noValidate

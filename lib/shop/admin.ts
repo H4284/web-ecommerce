@@ -1,8 +1,7 @@
 import "server-only";
-import { FieldValue } from "firebase-admin/firestore";
 import type { z } from "zod";
-import { db } from "@/lib/firebase/admin";
 import { requireAdmin, type ShopUser } from "@/lib/shop/auth";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 type AdminActionOptions<S extends z.ZodTypeAny, R> = {
   schema: S;
@@ -12,7 +11,7 @@ type AdminActionOptions<S extends z.ZodTypeAny, R> = {
   fn: (data: z.infer<S>, user: ShopUser) => Promise<R>;
 };
 
-/** requireAdmin → zod → fn → auditLogs entry. */
+/** requireAdmin → zod → fn → audit_logs entry. */
 export async function adminAction<S extends z.ZodTypeAny, R>(
   options: AdminActionOptions<S, R>,
 ): Promise<R> {
@@ -28,13 +27,21 @@ export async function adminAction<S extends z.ZodTypeAny, R>(
       ? options.target(parsed.data)
       : options.target;
 
-  await db.collection("auditLogs").add({
-    uid: user.uid,
-    email: user.email,
+  const [entity, entityId] = target.includes("/")
+    ? (target.split("/", 2) as [string, string])
+    : [target, null];
+
+  const admin = getSupabaseAdmin();
+  const { error } = await admin.from("audit_logs").insert({
+    actor_uid: user.uid,
     action: options.action,
-    target,
-    at: FieldValue.serverTimestamp(),
+    entity,
+    entity_id: entityId,
+    meta: { email: user.email, target },
   });
+  if (error) {
+    console.error("[audit_logs]", error.message);
+  }
 
   return result;
 }

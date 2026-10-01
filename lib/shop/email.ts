@@ -1,7 +1,7 @@
 import "server-only";
 import { render } from "@react-email/components";
 import { Resend } from "resend";
-import { db } from "@/lib/firebase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { OrderAdminEmail } from "@/emails/order-admin";
 import { OrderConfirmationEmail } from "@/emails/order-confirmation";
 import { OrderStatusEmail } from "@/emails/order-status";
@@ -110,6 +110,48 @@ export async function orderToEmailModel(
   };
 }
 
+function orderFromRow(row: Record<string, unknown>): OrderDocForEmail {
+  const lines = (row.lines as OrderDocForEmail["lines"]) ?? [];
+  return {
+    number: String(row.number),
+    status: String(row.status),
+    paymentMethodId: String(row.payment_method_id),
+    paymentStatus: String(row.payment_status),
+    lines,
+    subtotalCents: Number(row.subtotal_cents),
+    discount: row.discount as OrderDocForEmail["discount"],
+    deliveryCents: Number(row.delivery_cents),
+    totalCents: Number(row.total_cents),
+    delivery: row.delivery as OrderDocForEmail["delivery"],
+    customer: row.customer as OrderDocForEmail["customer"],
+    emails: (row.emails as OrderEmailMarks) ?? {},
+  };
+}
+
+async function loadOrderRow(orderId: string): Promise<OrderDocForEmail> {
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error(`Order ${orderId} missing`);
+  return orderFromRow(data as Record<string, unknown>);
+}
+
+async function patchOrderEmails(
+  orderId: string,
+  emails: OrderEmailMarks,
+): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("orders")
+    .update({ emails })
+    .eq("id", orderId);
+  if (error) throw error;
+}
+
 /**
  * Send customer confirmation + admin notice after the order transaction.
  * Skips any email already marked on the order document.
@@ -118,13 +160,8 @@ export async function sendOrderEmails(orderId: string): Promise<{
   confirmation: boolean;
   admin: boolean;
 }> {
-  const ref = db.collection("orders").doc(orderId);
-  const snap = await ref.get();
-  if (!snap.exists) {
-    throw new Error(`Order ${orderId} missing`);
-  }
-  const order = snap.data() as OrderDocForEmail;
-  const marks = order.emails ?? {};
+  const order = await loadOrderRow(orderId);
+  const marks = { ...(order.emails ?? {}) };
   const model = await orderToEmailModel(orderId, order);
   const from = fromAddress(model.company);
   const settings = await getShopSettingsUncached();
@@ -141,8 +178,8 @@ export async function sendOrderEmails(orderId: string): Promise<{
       from,
     });
     emailSendStats.confirmation += 1;
-    const at = new Date().toISOString();
-    await ref.update({ "emails.confirmationAt": at });
+    marks.confirmationAt = new Date().toISOString();
+    await patchOrderEmails(orderId, marks);
     confirmation = true;
   }
 
@@ -155,8 +192,8 @@ export async function sendOrderEmails(orderId: string): Promise<{
       from,
     });
     emailSendStats.admin += 1;
-    const at = new Date().toISOString();
-    await ref.update({ "emails.adminAt": at });
+    marks.adminAt = new Date().toISOString();
+    await patchOrderEmails(orderId, marks);
     admin = true;
   }
 
@@ -168,12 +205,7 @@ export async function sendOrderStatusEmail(
   orderId: string,
   statusNote?: string,
 ): Promise<boolean> {
-  const ref = db.collection("orders").doc(orderId);
-  const snap = await ref.get();
-  if (!snap.exists) {
-    throw new Error(`Order ${orderId} missing`);
-  }
-  const order = snap.data() as OrderDocForEmail;
+  const order = await loadOrderRow(orderId);
   const model = await orderToEmailModel(orderId, order, statusNote);
   const html = await render(OrderStatusEmail({ model }));
   await deliver({
@@ -183,7 +215,8 @@ export async function sendOrderStatusEmail(
     from: fromAddress(model.company),
   });
   emailSendStats.status += 1;
-  await ref.update({ "emails.statusAt": new Date().toISOString() });
+  const marks = { ...(order.emails ?? {}), statusAt: new Date().toISOString() };
+  await patchOrderEmails(orderId, marks);
   return true;
 }
 

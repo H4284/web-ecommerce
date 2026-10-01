@@ -3,6 +3,8 @@ import { securityHeaderList } from "./lib/shop/security-headers";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Localhost vs 127.0.0.1 — without this, client JS / HMR is blocked and login never hydrates.
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   images: { loader: "custom", loaderFile: "./lib/images/loader.ts" },
   experimental: { serverActions: { bodySizeLimit: "11mb" } },
   async headers() {

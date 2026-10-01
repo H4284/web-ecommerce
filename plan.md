@@ -5,7 +5,7 @@
 | Status | `Building` |
 | Layer | `ecommerce` |
 | QA | — |
-| Updated | 2026-09-29 |
+| Updated | 2026-10-01 |
 
 `[REQUIRED]` blocks the build. `⚠️ CONFIRM WITH CLIENT` = assumed. Status rules: `.cursor/rules/00-core.mdc`.
 
@@ -113,7 +113,7 @@ Asset brief: icons Lucide · photos client product + lifestyle (perfume bottles,
 ## Ops
 
 Domain (owner, registrar): not owned yet · GitHub repo: Thrio creates under the `thrio` org · Cloudflare account: Thrio owns DNS; client owns the domain after launch ·
-Sanity project (cms): — · Firebase projects + staging URL (ecommerce): staging `sanem-ac70d` · prod `sanem-prod` (before ship) · staging URL: TBD after App Hosting · form inbox: — ·
+Sanity project (cms): — · Backend (ecommerce): **migrating to Supabase** (was Firebase staging `sanem-ac70d` · prod `sanem-prod`) · Next.js host: **Vercel** · staging URL: TBD · form inbox: — ·
 deadline: no fixed date · ClickUp: create under Thrio clients
 
 Handover after launch — domain / Cloudflare / GitHub / Sanity / Firebase owner: Hava · ihthava@gmail.com
@@ -128,6 +128,12 @@ Handover after launch — domain / Cloudflare / GitHub / Sanity / Firebase owner
 | 2026-09-29 | `shop:payment-bank` out until Step 0 received | Card off for launch |
 | 2026-09-29 | Related products only (no “also bought” until order data) | Feature take · unit 10 |
 | 2026-09-29 | PDP “Të ngjashme” uses `relatedIds` then same subcategory; no second carousel | unit 10 · Decision above |
+| 2026-10-01 | Migrate shop backend from Firebase to **Supabase** (Postgres + Auth + Storage). Next.js host: **Vercel**. Shop money invariants stay (server-only DB, stock transactions, COD first). | Client / Thrio decision — leaves default stack in `01-stack.mdc` |
+| 2026-10-01 | Add `@supabase/supabase-js` (server service role + browser anon) | Supabase + Vercel migration |
+| 2026-10-01 | Phase 2: catalog/settings/home/cart-validate read Supabase; `pnpm seed:supabase` | Continue Firebase → Supabase cutover |
+| 2026-10-01 | Phase 3: `createOrder` + thank-you + order emails on Postgres; Turnstile skips when `NEXT_PUBLIC_USE_EMULATORS=1` | Smoke: `SAN-2026-00001` |
+| 2026-10-01 | Phase 4: Supabase Auth session cookie; admin CRUD/orders/dashboard/images on Supabase Storage | Auth smoke admin 200 |
+| 2026-10-01 | Phase 5: shop runtime on Supabase; handoff + `.env.example` retargeted to **Vercel**; `pnpm seed` → Supabase; Firebase left for legacy emulator tests only | Deploy preview on Vercel |
 
 ## Out of scope
 
@@ -226,8 +232,9 @@ Hero slides · promo blocks · products · orders
 
 | Field | Value |
 |---|---|
-| Production Firebase project | `sanem-prod` in the client's Google account, Blaze + budget alert — owner: ihthava@gmail.com |
-| Staging Firebase project | `sanem-ac70d` in Thrio's account |
+| Production backend | Supabase project (prod) — TBD after migration · owner: ihthava@gmail.com |
+| Staging backend | Supabase **Sanem** · `https://rprnkicyhaqeiacmzmpk.supabase.co` · West EU (Ireland) · was Firebase `sanem-ac70d` |
+| Next.js host | **Vercel** (staging + production) |
 | Resend sending address | orders@sanem.test |
 | Bank merchant portal | the client |
 

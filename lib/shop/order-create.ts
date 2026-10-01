@@ -1,9 +1,4 @@
 import "server-only";
-import {
-  FieldValue,
-  type DocumentReference,
-} from "firebase-admin/firestore";
-import { db } from "@/lib/firebase/admin";
 import { getUser, type ShopUser } from "@/lib/shop/auth";
 import { mergeCartLines } from "@/lib/shop/cart-schema";
 import {
@@ -34,6 +29,8 @@ import {
 } from "@/lib/shop/settings-schema";
 import { variantLabel } from "@/lib/shop/variants";
 import { shopCopy } from "@/content/shop";
+import { createPgClient } from "@/lib/supabase/pg";
+import { randomBytes } from "node:crypto";
 
 export class OrderStockError extends Error {
   readonly conflict: OrderStockConflict;
@@ -89,7 +86,53 @@ type CreateOrderOptions = {
   user?: ShopUser | null;
 };
 
-/** Create an order in one Firestore transaction. Ignores client prices. */
+function mapProduct(row: Record<string, unknown>): ProductDoc {
+  const raw = {
+    name: row.name,
+    slug: row.slug,
+    brandId: row.brand_id,
+    categoryIds: row.category_ids,
+    shortDescription: row.short_description,
+    description: row.description,
+    images: row.images,
+    options: row.options,
+    status: row.status,
+    isNew: row.is_new,
+    isBestSeller: row.is_best_seller,
+    unit: row.unit,
+    relatedIds: row.related_ids,
+    searchTokens: row.search_tokens,
+    minPriceCents: row.min_price_cents,
+    maxPriceCents: row.max_price_cents,
+    totalStock: row.total_stock,
+    defaultVariantId: row.default_variant_id,
+    createdAt:
+      typeof row.created_at === "string"
+        ? row.created_at
+        : new Date(row.created_at as string).toISOString(),
+    updatedAt:
+      typeof row.updated_at === "string"
+        ? row.updated_at
+        : new Date(row.updated_at as string).toISOString(),
+    seo: row.seo ?? undefined,
+  };
+  return { id: String(row.id), ...productSchema.parse(raw) };
+}
+
+function mapVariant(row: Record<string, unknown>): VariantDoc {
+  const raw = {
+    sku: row.sku,
+    optionValues: row.option_values,
+    priceCents: row.price_cents,
+    compareAtCents: row.compare_at_cents,
+    stock: row.stock,
+    isDefault: row.is_default,
+    image: row.image,
+  };
+  return { id: String(row.id), ...variantSchema.parse(raw) };
+}
+
+/** Create an order in one Postgres transaction. Ignores client prices. */
 export async function createOrder(
   body: CreateOrderBody,
   options?: CreateOrderOptions,
@@ -107,20 +150,32 @@ export async function createOrder(
     options !== undefined && "user" in options
       ? (options.user ?? null)
       : await getUser();
-  const orderRef = db.collection("orders").doc();
-  const counterRef = db.collection("counters").doc("orders");
-  const settingsRef = db.collection("settings").doc("shop");
-  const discountCode = body.discountCode?.trim().toUpperCase() || null;
-  const discountRef = discountCode
-    ? db.collection("discounts").doc(discountCode)
-    : null;
 
-  const result = await db.runTransaction(async (tx) => {
-    const settingsSnap = await tx.get(settingsRef);
-    if (!settingsSnap.exists) {
+  const discountCode = body.discountCode?.trim().toUpperCase() || null;
+  const orderId = randomBytes(12).toString("hex");
+  const createdAt = now.toISOString();
+
+  const client = createPgClient();
+  await client.connect();
+
+  let result: OrderSuccessResponse;
+  try {
+    await client.query("begin");
+
+    const settingsRes = await client.query(
+      `select * from shop_settings where id = 'shop' for update`,
+    );
+    if (!settingsRes.rowCount) {
       throw new OrderValidationError("Shop settings missing", 500);
     }
-    const settings: ShopSettings = shopSettingsSchema.parse(settingsSnap.data());
+    const s = settingsRes.rows[0] as Record<string, unknown>;
+    const settings: ShopSettings = shopSettingsSchema.parse({
+      deliveryMethods: s.delivery_methods,
+      paymentMethods: s.payment_methods,
+      orderPrefix: s.order_prefix,
+      ordersInbox: s.orders_inbox,
+      company: s.company,
+    });
 
     const deliveryMethod = settings.deliveryMethods.find(
       (m) => m.id === normalized.deliveryMethodId && m.active,
@@ -136,20 +191,37 @@ export async function createOrder(
       throw new OrderValidationError(shopCopy.fieldRequired);
     }
 
-    const counterSnap = await tx.get(counterRef);
-    const currentSeq = counterSnap.exists
-      ? Number((counterSnap.data() as { seq?: number }).seq ?? 0)
-      : 0;
-    if (!Number.isInteger(currentSeq) || currentSeq < 0) {
-      throw new OrderValidationError("Order counter invalid", 500);
-    }
-    const nextSeq = currentSeq + 1;
+    const counterRes = await client.query(
+      `insert into counters (id, seq) values ('orders', 1)
+       on conflict (id) do update set seq = counters.seq + 1
+       returning seq`,
+    );
+    const nextSeq = Number(counterRes.rows[0].seq);
 
     let discountDoc: DiscountDoc | null = null;
-    if (discountRef) {
-      const discountSnap = await tx.get(discountRef);
-      if (discountSnap.exists) {
-        const parsed = discountSchema.safeParse(discountSnap.data());
+    if (discountCode) {
+      const dRes = await client.query(
+        `select * from discounts where code = $1 for update`,
+        [discountCode],
+      );
+      if (dRes.rowCount) {
+        const d = dRes.rows[0] as Record<string, unknown>;
+        const parsed = discountSchema.safeParse({
+          type: d.type,
+          value: d.value,
+          minSubtotalCents: d.min_subtotal_cents,
+          startsAt:
+            typeof d.starts_at === "string"
+              ? d.starts_at
+              : new Date(d.starts_at as string).toISOString(),
+          endsAt:
+            typeof d.ends_at === "string"
+              ? d.ends_at
+              : new Date(d.ends_at as string).toISOString(),
+          usageLimit: d.usage_limit,
+          usedCount: d.used_count,
+          active: d.active,
+        });
         if (parsed.success) discountDoc = parsed.data;
       }
     }
@@ -158,18 +230,20 @@ export async function createOrder(
       input: (typeof merged)[number];
       product: ProductDoc;
       variant: VariantDoc;
-      productRef: DocumentReference;
-      variantRef: DocumentReference;
     };
     const loaded: Loaded[] = [];
 
     for (const line of merged) {
-      const productRef = db.collection("products").doc(line.productId);
-      const variantRef = productRef.collection("variants").doc(line.variantId);
-      const productSnap = await tx.get(productRef);
-      const variantSnap = await tx.get(variantRef);
+      const pRes = await client.query(
+        `select * from products where id = $1 for update`,
+        [line.productId],
+      );
+      const vRes = await client.query(
+        `select * from variants where product_id = $1 and id = $2 for update`,
+        [line.productId, line.variantId],
+      );
 
-      if (!productSnap.exists || !variantSnap.exists) {
+      if (!pRes.rowCount || !vRes.rowCount) {
         throw new OrderStockError({
           error: "stock",
           sku: line.variantId,
@@ -178,14 +252,8 @@ export async function createOrder(
         });
       }
 
-      const productParsed = productSchema.safeParse(productSnap.data());
-      const variantParsed = variantSchema.safeParse(variantSnap.data());
-      if (!productParsed.success || !variantParsed.success) {
-        throw new OrderValidationError("Catalog data invalid", 500);
-      }
-
-      const product = { id: productSnap.id, ...productParsed.data };
-      const variant = { id: variantSnap.id, ...variantParsed.data };
+      const product = mapProduct(pRes.rows[0] as Record<string, unknown>);
+      const variant = mapVariant(vRes.rows[0] as Record<string, unknown>);
 
       if (product.status !== "active") {
         throw new OrderStockError({
@@ -205,7 +273,7 @@ export async function createOrder(
         });
       }
 
-      loaded.push({ input: line, product, variant, productRef, variantRef });
+      loaded.push({ input: line, product, variant });
     }
 
     const qtyByVariant = new Map<string, number>();
@@ -214,7 +282,6 @@ export async function createOrder(
       qtyByVariant.set(key, (qtyByVariant.get(key) ?? 0) + row.input.qty);
     }
 
-    // Re-check summed qty against stock (duplicate lines merged).
     for (const row of loaded) {
       const key = `${row.product.id}::${row.variant.id}`;
       const qty = qtyByVariant.get(key)!;
@@ -259,16 +326,11 @@ export async function createOrder(
 
     const year = now.getUTCFullYear();
     const number = formatOrderNumber(settings.orderPrefix, year, nextSeq);
-    const createdAt = now.toISOString();
-
     const paymentStatus =
       normalized.paymentMethodId === "cod" ? "cod_due" : "awaiting_payment";
 
     const writtenVariants = new Set<string>();
-    const touchedProducts = new Map<
-      string,
-      { ref: DocumentReference; product: ProductDoc; delta: number }
-    >();
+    const touchedProducts = new Map<string, { product: ProductDoc; delta: number }>();
 
     for (const row of loaded) {
       const key = `${row.product.id}::${row.variant.id}`;
@@ -286,14 +348,17 @@ export async function createOrder(
         });
       }
 
-      tx.update(row.variantRef, { stock: nextStock });
+      await client.query(
+        `update variants set stock = $1, updated_at = $2
+         where product_id = $3 and id = $4`,
+        [nextStock, createdAt, row.product.id, row.variant.id],
+      );
 
       const existing = touchedProducts.get(row.product.id);
       if (existing) {
         existing.delta += qty;
       } else {
         touchedProducts.set(row.product.id, {
-          ref: row.productRef,
           product: row.product,
           delta: qty,
         });
@@ -305,67 +370,88 @@ export async function createOrder(
       if (nextTotal < 0) {
         throw new OrderValidationError("totalStock would go negative", 500);
       }
-      tx.update(item.ref, {
-        totalStock: nextTotal,
-        updatedAt: createdAt,
-      });
+      await client.query(
+        `update products set total_stock = $1, updated_at = $2 where id = $3`,
+        [nextTotal, createdAt, item.product.id],
+      );
     }
 
-    if (discountRef && discount.code) {
-      tx.update(discountRef, { usedCount: FieldValue.increment(1) });
+    if (discountCode && discount.code) {
+      await client.query(
+        `update discounts set used_count = used_count + 1, updated_at = $1 where code = $2`,
+        [createdAt, discountCode],
+      );
     }
 
-    if (counterSnap.exists) {
-      tx.update(counterRef, { seq: nextSeq });
-    } else {
-      tx.set(counterRef, { seq: nextSeq });
-    }
-
-    tx.set(orderRef, {
-      number,
-      status: "pending",
-      paymentStatus,
-      stockTaken: true,
-      customer: {
-        email: normalized.email,
-        phone: normalized.delivery.phone,
-        name: normalized.delivery.recipient,
-        uid: user?.uid ?? null,
-      },
-      delivery: normalized.delivery,
-      billing: normalized.billing,
-      billingSameAsDelivery: normalized.billingSameAsDelivery,
-      lines: lineSnapshots,
-      subtotalCents,
-      discount: {
-        code: discount.code,
-        type: discount.type,
-        amountCents: discount.amountCents,
-        freeDelivery: discount.freeDelivery,
-      },
-      deliveryMethodId: deliveryMethod.id,
-      deliveryCents,
-      paymentMethodId: paymentMethod.id,
-      totalCents,
-      newsletterOptIn: normalized.newsletterOptIn,
-      createdAt,
-      timeline: [
-        {
-          status: "pending",
-          at: createdAt,
-          by: user?.uid ?? "guest",
-          note: "",
-        },
+    await client.query(
+      `insert into orders (
+        id, number, status, payment_status, stock_taken,
+        customer, delivery, billing, billing_same_as_delivery, lines,
+        subtotal_cents, discount, delivery_method_id, delivery_cents,
+        payment_method_id, total_cents, newsletter_opt_in, timeline, emails,
+        created_at, updated_at
+      ) values (
+        $1,$2,'pending',$3,true,
+        $4::jsonb,$5::jsonb,$6::jsonb,$7,$8::jsonb,
+        $9,$10::jsonb,$11,$12,
+        $13,$14,$15,$16::jsonb,'{}'::jsonb,
+        $17,$17
+      )`,
+      [
+        orderId,
+        number,
+        paymentStatus,
+        JSON.stringify({
+          email: normalized.email,
+          phone: normalized.delivery.phone,
+          name: normalized.delivery.recipient,
+          uid: user?.uid ?? null,
+        }),
+        JSON.stringify(normalized.delivery),
+        JSON.stringify(normalized.billing),
+        normalized.billingSameAsDelivery,
+        JSON.stringify(lineSnapshots),
+        subtotalCents,
+        JSON.stringify({
+          code: discount.code,
+          type: discount.type,
+          amountCents: discount.amountCents,
+          freeDelivery: discount.freeDelivery,
+        }),
+        deliveryMethod.id,
+        deliveryCents,
+        paymentMethod.id,
+        totalCents,
+        normalized.newsletterOptIn,
+        JSON.stringify([
+          {
+            status: "pending",
+            at: createdAt,
+            by: user?.uid ?? "guest",
+            note: "",
+          },
+        ]),
+        createdAt,
       ],
-      emails: {},
-    });
+    );
 
-    return {
-      orderId: orderRef.id,
+    await client.query("commit");
+
+    result = {
+      orderId,
       number,
-      thankYouUrl: thankYouPath(orderRef.id, signOrderLink(orderRef.id)),
-    } satisfies OrderSuccessResponse;
-  });
+      thankYouUrl: thankYouPath(orderId, signOrderLink(orderId)),
+    };
+  } catch (err) {
+    try {
+      await client.query("rollback");
+    } catch {
+      // ignore
+    }
+    throw err;
+  } finally {
+    await client.end();
+  }
 
   try {
     const { sendOrderEmails } = await import("@/lib/shop/email");

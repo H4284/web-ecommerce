@@ -4,9 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { UserRound } from "lucide-react";
-import { signOut } from "firebase/auth";
 import { shopCopy } from "@/content/shop";
-import { auth } from "@/lib/firebase/client";
 import type { ShopUser } from "@/lib/shop/auth-types";
 
 type AuthMenuProps = {
@@ -29,11 +27,6 @@ export function AuthMenu({ user }: AuthMenuProps) {
   async function handleSignOut() {
     setOpen(false);
     await fetch("/api/auth/logout", { method: "POST" });
-    try {
-      await signOut(auth);
-    } catch {
-      // Cookie cleared; client sign-out is best-effort.
-    }
     router.push("/");
     router.refresh();
   }

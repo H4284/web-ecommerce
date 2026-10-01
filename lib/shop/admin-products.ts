@@ -1,6 +1,6 @@
 import "server-only";
 import { updateTag } from "next/cache";
-import { db } from "@/lib/firebase/admin";
+import { randomBytes } from "node:crypto";
 import { adminAction } from "@/lib/shop/admin";
 import { requireAdmin } from "@/lib/shop/auth";
 import { recomputeProduct } from "@/lib/shop/catalog-write";
@@ -14,8 +14,6 @@ import {
   type UpdateStockInput,
 } from "@/lib/shop/admin-product-schema";
 import {
-  brandSchema,
-  categorySchema,
   productSchema,
   variantSchema,
   type Brand,
@@ -23,6 +21,16 @@ import {
   type Product,
   type Variant,
 } from "@/lib/shop/schemas";
+import {
+  brandFromRow,
+  categoryFromRow,
+  productFromRow,
+  productToRow,
+  variantFromRow,
+  variantToRow,
+} from "@/lib/shop/supabase-mappers";
+import { createPgClient } from "@/lib/supabase/pg";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export class StockConflictError extends Error {
   constructor() {
@@ -39,53 +47,63 @@ export type AdminProductDetail = AdminProductRow & {
 
 export async function listAdminProducts(): Promise<AdminProductRow[]> {
   await requireAdmin();
-  const snap = await db.collection("products").orderBy("updatedAt", "desc").get();
-  const items: AdminProductRow[] = [];
-  for (const doc of snap.docs) {
-    const parsed = productSchema.safeParse(doc.data());
-    if (parsed.success) items.push({ id: doc.id, ...parsed.data });
-  }
-  return items;
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("products")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row) =>
+    productFromRow(row as Record<string, unknown>),
+  );
 }
 
 export async function getAdminProduct(
   id: string,
 ): Promise<AdminProductDetail | null> {
   await requireAdmin();
-  const ref = db.collection("products").doc(id);
-  const snap = await ref.get();
-  if (!snap.exists) return null;
-  const parsed = productSchema.safeParse(snap.data());
-  if (!parsed.success) return null;
-  const variantsSnap = await ref.collection("variants").get();
-  const variants: AdminVariantRow[] = [];
-  for (const v of variantsSnap.docs) {
-    const vp = variantSchema.safeParse(v.data());
-    if (vp.success) variants.push({ id: v.id, ...vp.data });
-  }
-  return { id: snap.id, ...parsed.data, variants };
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("products")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const { data: variants, error: vErr } = await admin
+    .from("variants")
+    .select("*")
+    .eq("product_id", id);
+  if (vErr) throw vErr;
+
+  return {
+    ...productFromRow(data as Record<string, unknown>),
+    variants: (variants ?? []).map((row) =>
+      variantFromRow(row as Record<string, unknown>),
+    ),
+  };
 }
 
 export async function listAdminCategories(): Promise<Array<Category & { id: string }>> {
   await requireAdmin();
-  const snap = await db.collection("categories").orderBy("order", "asc").get();
-  const items: Array<Category & { id: string }> = [];
-  for (const doc of snap.docs) {
-    const parsed = categorySchema.safeParse(doc.data());
-    if (parsed.success) items.push({ id: doc.id, ...parsed.data });
-  }
-  return items;
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("categories")
+    .select("*")
+    .order("order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) =>
+    categoryFromRow(row as Record<string, unknown>),
+  );
 }
 
 export async function listAdminBrands(): Promise<Array<Brand & { id: string }>> {
   await requireAdmin();
-  const snap = await db.collection("brands").get();
-  const items: Array<Brand & { id: string }> = [];
-  for (const doc of snap.docs) {
-    const parsed = brandSchema.safeParse(doc.data());
-    if (parsed.success) items.push({ id: doc.id, ...parsed.data });
-  }
-  return items;
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin.from("brands").select("*");
+  if (error) throw error;
+  return (data ?? []).map((row) => brandFromRow(row as Record<string, unknown>));
 }
 
 export async function saveAdminProduct(input: unknown) {
@@ -119,14 +137,19 @@ export async function bulkSetProductStatus(input: unknown) {
 }
 
 async function writeProduct(data: SaveProductInput): Promise<{ id: string }> {
-  const productId = data.id ?? db.collection("products").doc().id;
-  const productRef = db.collection("products").doc(productId);
-  const existing = await productRef.get();
+  const admin = getSupabaseAdmin();
+  const productId = data.id ?? randomBytes(8).toString("hex");
   const now = new Date().toISOString();
-  const createdAt =
-    existing.exists && typeof existing.data()?.createdAt === "string"
-      ? (existing.data()!.createdAt as string)
-      : now;
+
+  const { data: existing } = await admin
+    .from("products")
+    .select("*")
+    .eq("id", productId)
+    .maybeSingle();
+
+  const createdAt = existing?.created_at
+    ? String(existing.created_at)
+    : now;
 
   const images = data.id
     ? data.images.length > 0
@@ -165,32 +188,36 @@ async function writeProduct(data: SaveProductInput): Promise<{ id: string }> {
       : {}),
   });
 
-  const existingVariants = existing.exists
-    ? await productRef.collection("variants").get()
-    : null;
-  const existingIds = new Set(existingVariants?.docs.map((d) => d.id) ?? []);
+  const { error: pErr } = await admin
+    .from("products")
+    .upsert(productToRow({ id: productId, ...productDoc }));
+  if (pErr) throw pErr;
 
-  const batch = db.batch();
-  batch.set(productRef, productDoc, { merge: true });
+  const { data: existingVariants } = await admin
+    .from("variants")
+    .select("id")
+    .eq("product_id", productId);
+  const existingIds = new Set((existingVariants ?? []).map((v) => String(v.id)));
 
   let defaultId: string | null = null;
   for (const v of data.variants) {
     const vid = v.id || variantIdFromOptions(v.optionValues);
     if (v.isDefault) defaultId = vid;
-    const vref = productRef.collection("variants").doc(vid);
+
     if (existingIds.has(vid)) {
-      batch.set(
-        vref,
-        {
+      const { error } = await admin
+        .from("variants")
+        .update({
           sku: v.sku,
-          optionValues: v.optionValues,
-          priceCents: v.priceCents,
-          compareAtCents: v.compareAtCents,
-          isDefault: v.isDefault,
-          image: null,
-        },
-        { merge: true },
-      );
+          option_values: v.optionValues,
+          price_cents: v.priceCents,
+          compare_at_cents: v.compareAtCents,
+          is_default: v.isDefault,
+          updated_at: now,
+        })
+        .eq("product_id", productId)
+        .eq("id", vid);
+      if (error) throw error;
     } else {
       const variantDoc = variantSchema.parse({
         sku: v.sku,
@@ -201,36 +228,55 @@ async function writeProduct(data: SaveProductInput): Promise<{ id: string }> {
         isDefault: v.isDefault,
         image: null,
       });
-      batch.set(vref, variantDoc);
+      const { error } = await admin
+        .from("variants")
+        .insert(variantToRow(productId, { id: vid, ...variantDoc }));
+      if (error) throw error;
     }
   }
 
   if (defaultId) {
-    batch.set(productRef, { defaultVariantId: defaultId }, { merge: true });
+    const { error } = await admin
+      .from("products")
+      .update({ default_variant_id: defaultId, updated_at: now })
+      .eq("id", productId);
+    if (error) throw error;
   }
 
-  await batch.commit();
   await recomputeProduct(productId);
   updateTag("catalog");
   return { id: productId };
 }
 
 async function writeStock(data: UpdateStockInput): Promise<{ stock: number }> {
-  const ref = db
-    .collection("products")
-    .doc(data.productId)
-    .collection("variants")
-    .doc(data.variantId);
-
-  await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists) throw new Error("Variant not found");
-    const current = Number(snap.data()?.stock);
+  const client = createPgClient();
+  await client.connect();
+  try {
+    await client.query("begin");
+    const res = await client.query(
+      `select stock from variants where product_id = $1 and id = $2 for update`,
+      [data.productId, data.variantId],
+    );
+    if (!res.rowCount) throw new Error("Variant not found");
+    const current = Number(res.rows[0].stock);
     if (current !== data.expectedStock) {
       throw new StockConflictError();
     }
-    tx.update(ref, { stock: data.nextStock });
-  });
+    await client.query(
+      `update variants set stock = $1, updated_at = $2 where product_id = $3 and id = $4`,
+      [data.nextStock, new Date().toISOString(), data.productId, data.variantId],
+    );
+    await client.query("commit");
+  } catch (err) {
+    try {
+      await client.query("rollback");
+    } catch {
+      // ignore
+    }
+    throw err;
+  } finally {
+    await client.end();
+  }
 
   await recomputeProduct(data.productId);
   updateTag("catalog");
@@ -240,16 +286,13 @@ async function writeStock(data: UpdateStockInput): Promise<{ stock: number }> {
 async function writeBulkStatus(
   data: BulkProductStatusInput,
 ): Promise<{ count: number }> {
-  const batch = db.batch();
+  const admin = getSupabaseAdmin();
   const now = new Date().toISOString();
-  for (const id of data.ids) {
-    batch.set(
-      db.collection("products").doc(id),
-      { status: data.status, updatedAt: now },
-      { merge: true },
-    );
-  }
-  await batch.commit();
+  const { error } = await admin
+    .from("products")
+    .update({ status: data.status, updated_at: now })
+    .in("id", data.ids);
+  if (error) throw error;
   updateTag("catalog");
   return { count: data.ids.length };
 }

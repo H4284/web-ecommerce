@@ -1,11 +1,8 @@
 import "server-only";
 import { updateTag } from "next/cache";
-import { db } from "@/lib/firebase/admin";
 import { adminAction } from "@/lib/shop/admin";
 import { requireAdmin } from "@/lib/shop/auth";
-import {
-  saveHomeContentInputSchema,
-} from "@/lib/shop/admin-content-schema";
+import { saveHomeContentInputSchema } from "@/lib/shop/admin-content-schema";
 import {
   HOME_CONTENT_PATH,
   type HomeContent,
@@ -16,8 +13,21 @@ import {
   resizeAndUploadContentImage,
 } from "@/lib/images/product-image";
 import { MAX_IMAGE_BYTES } from "@/lib/images/widths";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export { ImageTooLargeError, MAX_IMAGE_BYTES };
+
+async function writeHomeContent(content: HomeContent): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const { error } = await admin.from("home_content").upsert({
+    id: HOME_CONTENT_PATH.id,
+    hero_slides: content.heroSlides,
+    promo_blocks: content.promoBlocks,
+    brand_strip_product_ids: content.brandStripProductIds,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
 
 export async function getAdminHomeContent(): Promise<HomeContent> {
   await requireAdmin();
@@ -31,10 +41,7 @@ export async function saveAdminHomeContent(input: unknown) {
     target: "content/home",
     input,
     fn: async (data) => {
-      await db
-        .collection(HOME_CONTENT_PATH.collection)
-        .doc(HOME_CONTENT_PATH.id)
-        .set(data, { merge: false });
+      await writeHomeContent(data);
       updateTag("content");
       return { ok: true as const };
     },
@@ -69,10 +76,7 @@ export async function uploadAdminHomeHeroImage(opts: {
     ),
   };
 
-  await db
-    .collection(HOME_CONTENT_PATH.collection)
-    .doc(HOME_CONTENT_PATH.id)
-    .set(next, { merge: false });
+  await writeHomeContent(next);
   updateTag("content");
   return { path, content: next };
 }

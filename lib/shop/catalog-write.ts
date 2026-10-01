@@ -1,60 +1,61 @@
 import "server-only";
-import { db } from "@/lib/firebase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { productSchema } from "@/lib/shop/schemas";
 import { searchTokens } from "@/lib/shop/search";
+import { productFromRow, productToRow } from "@/lib/shop/supabase-mappers";
 
 /** Recompute denormalised product fields from its variants (+ brand name for tokens). */
 export async function recomputeProduct(productId: string): Promise<void> {
-  const productRef = db.collection("products").doc(productId);
-  const productSnap = await productRef.get();
-  if (!productSnap.exists) {
+  const admin = getSupabaseAdmin();
+  const { data: productRow, error: pErr } = await admin
+    .from("products")
+    .select("*")
+    .eq("id", productId)
+    .maybeSingle();
+  if (pErr) throw pErr;
+  if (!productRow) {
     throw new Error(`recomputeProduct: missing product ${productId}`);
   }
 
-  const product = productSnap.data() ?? {};
-  const variantsSnap = await productRef.collection("variants").get();
-  const variants = variantsSnap.docs.map((d) => ({
-    id: d.id,
-    ...(d.data() as {
-      priceCents?: unknown;
-      stock?: unknown;
-      isDefault?: unknown;
-    }),
-  }));
+  const product = productFromRow(productRow as Record<string, unknown>);
+  const { data: variantRows, error: vErr } = await admin
+    .from("variants")
+    .select("*")
+    .eq("product_id", productId);
+  if (vErr) throw vErr;
 
   let minPriceCents = Number.POSITIVE_INFINITY;
   let maxPriceCents = 0;
   let totalStock = 0;
   let defaultVariantId: string | null = null;
 
-  for (const v of variants) {
-    const price = Number(v.priceCents);
-    const stock = Number(v.stock);
+  for (const row of variantRows ?? []) {
+    const price = Number((row as { price_cents?: unknown }).price_cents);
+    const stock = Number((row as { stock?: unknown }).stock);
     if (!Number.isInteger(price) || !Number.isInteger(stock)) continue;
     minPriceCents = Math.min(minPriceCents, price);
     maxPriceCents = Math.max(maxPriceCents, price);
     totalStock += stock;
-    if (v.isDefault === true) defaultVariantId = v.id;
+    if ((row as { is_default?: unknown }).is_default === true) {
+      defaultVariantId = String((row as { id: string }).id);
+    }
   }
 
   if (!Number.isFinite(minPriceCents)) {
     minPriceCents = 0;
-    maxPriceCents = 0;
   }
 
-  if (!defaultVariantId && variants.length > 0) {
-    const inStock = variants.find((v) => Number(v.stock) > 0);
-    defaultVariantId = (inStock ?? variants[0]).id;
+  let brandName = "";
+  if (product.brandId) {
+    const { data: brand } = await admin
+      .from("brands")
+      .select("name")
+      .eq("id", product.brandId)
+      .maybeSingle();
+    brandName = brand?.name ? String(brand.name) : "";
   }
 
-  let brandName: string | null = null;
-  if (typeof product.brandId === "string" && product.brandId) {
-    const brandSnap = await db.collection("brands").doc(product.brandId).get();
-    brandName = (brandSnap.data()?.name as string | undefined) ?? null;
-  }
-
-  const tokens = searchTokens(String(product.name ?? ""), brandName);
-  const updatedAt = new Date().toISOString();
+  const tokens = searchTokens(product.name, brandName);
 
   const next = productSchema.parse({
     ...product,
@@ -63,8 +64,12 @@ export async function recomputeProduct(productId: string): Promise<void> {
     maxPriceCents,
     totalStock,
     defaultVariantId,
-    updatedAt,
+    updatedAt: new Date().toISOString(),
   });
 
-  await productRef.set(next, { merge: true });
+  const { error } = await admin
+    .from("products")
+    .update(productToRow({ id: productId, ...next }))
+    .eq("id", productId);
+  if (error) throw error;
 }

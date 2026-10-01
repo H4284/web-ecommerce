@@ -1,7 +1,5 @@
 import "server-only";
-import { FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { updateTag } from "next/cache";
-import { db } from "@/lib/firebase/admin";
 import { adminAction } from "@/lib/shop/admin";
 import { requireAdmin, type ShopUser } from "@/lib/shop/auth";
 import {
@@ -13,36 +11,41 @@ import {
   type AdminOrderLine,
   type AdminOrderTimelineEntry,
   type ListOrdersFilter,
-  type OrderStatus,
   type UpdateOrderStatusInput,
 } from "@/lib/shop/admin-order-schema";
 import { sendOrderStatusEmail } from "@/lib/shop/email";
+import { createPgClient } from "@/lib/supabase/pg";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-export type { AdminOrder, AdminOrderLine, OrderStatus };
+export type { AdminOrder, AdminOrderLine, OrderStatus } from "@/lib/shop/admin-order-schema";
 
-function mapOrder(id: string, data: FirebaseFirestore.DocumentData): AdminOrder {
+function mapOrder(row: Record<string, unknown>): AdminOrder {
+  const discount = row.discount as { amountCents?: number } | null;
   return {
-    id,
-    number: String(data.number ?? ""),
-    status: String(data.status ?? ""),
-    paymentStatus: String(data.paymentStatus ?? ""),
-    paymentMethodId: String(data.paymentMethodId ?? ""),
-    stockTaken: Boolean(data.stockTaken),
-    customer: data.customer as AdminOrder["customer"],
-    delivery: data.delivery as AdminOrder["delivery"],
-    billing: (data.billing as AdminOrder["delivery"]) ?? null,
-    billingSameAsDelivery: Boolean(data.billingSameAsDelivery ?? true),
-    lines: (data.lines as AdminOrderLine[]) ?? [],
-    subtotalCents: Number(data.subtotalCents ?? 0),
-    discountAmountCents: Number(data.discount?.amountCents ?? 0),
-    deliveryCents: Number(data.deliveryCents ?? 0),
-    totalCents: Number(data.totalCents ?? 0),
-    deliveryMethodId: String(data.deliveryMethodId ?? ""),
-    createdAt: String(data.createdAt ?? ""),
-    timeline: (data.timeline as AdminOrderTimelineEntry[]) ?? [],
-    internalNote: String(data.internalNote ?? ""),
-    bankTransactionId: (data.bankTransactionId as string | null) ?? null,
-    bankLast4: (data.bankLast4 as string | null) ?? null,
+    id: String(row.id),
+    number: String(row.number ?? ""),
+    status: String(row.status ?? ""),
+    paymentStatus: String(row.payment_status ?? ""),
+    paymentMethodId: String(row.payment_method_id ?? ""),
+    stockTaken: Boolean(row.stock_taken),
+    customer: row.customer as AdminOrder["customer"],
+    delivery: row.delivery as AdminOrder["delivery"],
+    billing: (row.billing as AdminOrder["delivery"]) ?? null,
+    billingSameAsDelivery: Boolean(row.billing_same_as_delivery ?? true),
+    lines: (row.lines as AdminOrderLine[]) ?? [],
+    subtotalCents: Number(row.subtotal_cents ?? 0),
+    discountAmountCents: Number(discount?.amountCents ?? 0),
+    deliveryCents: Number(row.delivery_cents ?? 0),
+    totalCents: Number(row.total_cents ?? 0),
+    deliveryMethodId: String(row.delivery_method_id ?? ""),
+    createdAt:
+      typeof row.created_at === "string"
+        ? row.created_at
+        : new Date(row.created_at as string).toISOString(),
+    timeline: (row.timeline as AdminOrderTimelineEntry[]) ?? [],
+    internalNote: String(row.internal_note ?? row.notes ?? ""),
+    bankTransactionId: (row.bank_transaction_id as string | null) ?? null,
+    bankLast4: (row.bank_last4 as string | null) ?? null,
   };
 }
 
@@ -51,15 +54,21 @@ export async function listAdminOrders(
 ): Promise<AdminOrder[]> {
   await requireAdmin();
   const filter = listOrdersFilterSchema.parse(rawFilter);
-  const snap = await db.collection("orders").orderBy("createdAt", "desc").limit(200).get();
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("orders")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
 
   const q = filter.q.trim().toLowerCase();
   const fromMs = filter.from ? Date.parse(filter.from) : NaN;
   const toMs = filter.to ? Date.parse(filter.to) : NaN;
 
   const items: AdminOrder[] = [];
-  for (const doc of snap.docs) {
-    const order = mapOrder(doc.id, doc.data());
+  for (const row of data ?? []) {
+    const order = mapOrder(row as Record<string, unknown>);
     if (filter.status !== "all" && order.status !== filter.status) continue;
     if (filter.paymentStatus !== "all" && order.paymentStatus !== filter.paymentStatus) {
       continue;
@@ -86,9 +95,15 @@ export async function listAdminOrders(
 
 export async function getAdminOrder(id: string): Promise<AdminOrder | null> {
   await requireAdmin();
-  const snap = await db.collection("orders").doc(id).get();
-  if (!snap.exists) return null;
-  return mapOrder(snap.id, snap.data()!);
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("orders")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return mapOrder(data as Record<string, unknown>);
 }
 
 export async function updateAdminOrderStatus(input: unknown) {
@@ -111,24 +126,36 @@ export async function markAdminOrderPaid(input: unknown) {
     target: (d) => `orders/${d.orderId}`,
     input,
     fn: async (data, user) => {
-      const ref = db.collection("orders").doc(data.orderId);
-      const snap = await ref.get();
-      if (!snap.exists) throw new Error("Order not found");
-      const order = snap.data()!;
-      if (order.paymentMethodId !== "transfer") {
+      const admin = getSupabaseAdmin();
+      const { data: order, error } = await admin
+        .from("orders")
+        .select("*")
+        .eq("id", data.orderId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!order) throw new Error("Order not found");
+      if (order.payment_method_id !== "transfer") {
         throw new Error("Only transfer orders can be marked paid here");
       }
       const at = new Date().toISOString();
-      const entry = {
-        status: String(order.status),
-        at,
-        by: user.email ?? user.uid,
-        note: data.note || "Marked paid",
-      };
-      await ref.update({
-        paymentStatus: "paid",
-        timeline: FieldValue.arrayUnion(entry),
-      });
+      const timeline = [
+        ...((order.timeline as AdminOrderTimelineEntry[]) ?? []),
+        {
+          status: String(order.status),
+          at,
+          by: user.email ?? user.uid,
+          note: data.note || "Marked paid",
+        },
+      ];
+      const { error: upErr } = await admin
+        .from("orders")
+        .update({
+          payment_status: "paid",
+          timeline,
+          updated_at: at,
+        })
+        .eq("id", data.orderId);
+      if (upErr) throw upErr;
       return { id: data.orderId };
     },
   });
@@ -141,10 +168,16 @@ export async function updateAdminOrderNote(input: unknown) {
     target: (d) => `orders/${d.orderId}`,
     input,
     fn: async (data) => {
-      await db.collection("orders").doc(data.orderId).set(
-        { internalNote: data.internalNote },
-        { merge: true },
-      );
+      const admin = getSupabaseAdmin();
+      const { error } = await admin
+        .from("orders")
+        .update({
+          internal_note: data.internalNote,
+          notes: data.internalNote,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.orderId);
+      if (error) throw error;
       return { id: data.orderId };
     },
   });
@@ -197,34 +230,15 @@ async function applyStatusChange(
   data: UpdateOrderStatusInput,
   user: ShopUser,
 ): Promise<void> {
-  const ref = db.collection("orders").doc(data.orderId);
   const at = new Date().toISOString();
   const by = user.email ?? user.uid;
   const note = data.note ?? "";
 
   let changed = false;
   if (data.status === "cancelled") {
-    changed = await cancelOrderOnce(ref, at, by, note);
+    changed = await cancelOrderOnce(data.orderId, at, by, note);
   } else {
-    changed = await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists) throw new Error("Order not found");
-      const order = snap.data()!;
-      if (order.status === "cancelled") {
-        throw new Error("Order is cancelled");
-      }
-      if (order.status === data.status) return false;
-      tx.update(ref, {
-        status: data.status,
-        timeline: FieldValue.arrayUnion({
-          status: data.status,
-          at,
-          by,
-          note,
-        }),
-      });
-      return true;
-    });
+    changed = await updateStatusOnce(data.orderId, data.status, at, by, note);
   }
 
   if (changed) {
@@ -233,91 +247,114 @@ async function applyStatusChange(
   }
 }
 
-/** Cancel once: restore stock only when stockTaken is true. Returns false if already cancelled. */
-async function cancelOrderOnce(
-  ref: DocumentReference,
+async function updateStatusOnce(
+  orderId: string,
+  status: string,
   at: string,
   by: string,
   note: string,
 ): Promise<boolean> {
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists) throw new Error("Order not found");
-    const order = snap.data()!;
+  const client = createPgClient();
+  await client.connect();
+  try {
+    await client.query("begin");
+    const res = await client.query(
+      `select * from orders where id = $1 for update`,
+      [orderId],
+    );
+    if (!res.rowCount) throw new Error("Order not found");
+    const order = res.rows[0] as Record<string, unknown>;
+    if (order.status === "cancelled") throw new Error("Order is cancelled");
+    if (order.status === status) {
+      await client.query("rollback");
+      return false;
+    }
+    const timeline = [
+      ...((order.timeline as AdminOrderTimelineEntry[]) ?? []),
+      { status, at, by, note },
+    ];
+    await client.query(
+      `update orders set status = $1, timeline = $2::jsonb, updated_at = $3 where id = $4`,
+      [status, JSON.stringify(timeline), at, orderId],
+    );
+    await client.query("commit");
+    return true;
+  } catch (err) {
+    try {
+      await client.query("rollback");
+    } catch {
+      // ignore
+    }
+    throw err;
+  } finally {
+    await client.end();
+  }
+}
 
+/** Cancel once: restore stock only when stock_taken is true. */
+async function cancelOrderOnce(
+  orderId: string,
+  at: string,
+  by: string,
+  note: string,
+): Promise<boolean> {
+  const client = createPgClient();
+  await client.connect();
+  try {
+    await client.query("begin");
+    const res = await client.query(
+      `select * from orders where id = $1 for update`,
+      [orderId],
+    );
+    if (!res.rowCount) throw new Error("Order not found");
+    const order = res.rows[0] as Record<string, unknown>;
     if (order.status === "cancelled") {
+      await client.query("rollback");
       return false;
     }
 
     const lines = (order.lines as AdminOrderLine[]) ?? [];
-    type VariantRead = {
-      ref: DocumentReference;
-      stock: number;
-      qty: number;
-      productId: string;
-    };
-    const variantReads: VariantRead[] = [];
-    const productIds = new Set<string>();
-
-    if (order.stockTaken === true) {
+    if (order.stock_taken === true) {
+      const productDeltas = new Map<string, number>();
       for (const line of lines) {
-        const vref = db
-          .collection("products")
-          .doc(line.productId)
-          .collection("variants")
-          .doc(line.variantId);
-        const vsnap = await tx.get(vref);
-        if (!vsnap.exists) continue;
-        variantReads.push({
-          ref: vref,
-          stock: Number(vsnap.data()?.stock ?? 0),
-          qty: line.qty,
-          productId: line.productId,
-        });
-        productIds.add(line.productId);
+        await client.query(
+          `update variants set stock = stock + $1, updated_at = $2
+           where product_id = $3 and id = $4`,
+          [line.qty, at, line.productId, line.variantId],
+        );
+        productDeltas.set(
+          line.productId,
+          (productDeltas.get(line.productId) ?? 0) + line.qty,
+        );
+      }
+      for (const [productId, delta] of productDeltas) {
+        await client.query(
+          `update products set total_stock = total_stock + $1, updated_at = $2 where id = $3`,
+          [delta, at, productId],
+        );
       }
     }
 
-    const productReads: Array<{
-      ref: DocumentReference;
-      totalStock: number;
-      delta: number;
-    }> = [];
-    const deltas = new Map<string, number>();
-    for (const row of variantReads) {
-      deltas.set(row.productId, (deltas.get(row.productId) ?? 0) + row.qty);
-    }
-    for (const productId of productIds) {
-      const pref = db.collection("products").doc(productId);
-      const psnap = await tx.get(pref);
-      if (!psnap.exists) continue;
-      productReads.push({
-        ref: pref,
-        totalStock: Number(psnap.data()?.totalStock ?? 0),
-        delta: deltas.get(productId) ?? 0,
-      });
-    }
-
-    for (const row of variantReads) {
-      tx.update(row.ref, { stock: row.stock + row.qty });
-    }
-    for (const row of productReads) {
-      tx.update(row.ref, {
-        totalStock: row.totalStock + row.delta,
-        updatedAt: at,
-      });
-    }
-
-    tx.update(ref, {
-      status: "cancelled",
-      stockTaken: false,
-      timeline: FieldValue.arrayUnion({
-        status: "cancelled",
-        at,
-        by,
-        note,
-      }),
-    });
+    const timeline = [
+      ...((order.timeline as AdminOrderTimelineEntry[]) ?? []),
+      { status: "cancelled", at, by, note },
+    ];
+    await client.query(
+      `update orders
+       set status = 'cancelled', stock_taken = false, timeline = $1::jsonb, updated_at = $2
+       where id = $3`,
+      [JSON.stringify(timeline), at, orderId],
+    );
+    await client.query("commit");
     return true;
-  });
+  } catch (err) {
+    try {
+      await client.query("rollback");
+    } catch {
+      // ignore
+    }
+    throw err;
+  } finally {
+    await client.end();
+  }
 }

@@ -1,16 +1,28 @@
 import "server-only";
-import { db } from "@/lib/firebase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { shopSettingsSchema, type ShopSettings } from "@/lib/shop/settings-schema";
 
-const SETTINGS_PATH = { collection: "settings", id: "shop" } as const;
+const SETTINGS_ID = "shop";
 
-/** Uncached read of settings/shop. Order routes use this inside transactions. */
+/** Uncached read of shop_settings. */
 export async function getShopSettingsUncached(): Promise<ShopSettings> {
-  const snap = await db.collection(SETTINGS_PATH.collection).doc(SETTINGS_PATH.id).get();
-  if (!snap.exists) {
-    throw new Error("settings/shop is missing — run pnpm seed");
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("shop_settings")
+    .select("*")
+    .eq("id", SETTINGS_ID)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    throw new Error("shop_settings/shop is missing — run pnpm seed:supabase");
   }
-  return shopSettingsSchema.parse(snap.data());
+  return shopSettingsSchema.parse({
+    deliveryMethods: data.delivery_methods,
+    paymentMethods: data.payment_methods,
+    orderPrefix: data.order_prefix,
+    ordersInbox: data.orders_inbox,
+    company: data.company,
+  });
 }
 
-export { SETTINGS_PATH };
+export const SETTINGS_PATH = { collection: "settings", id: "shop" } as const;

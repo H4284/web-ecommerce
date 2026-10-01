@@ -16,7 +16,7 @@ export function ProductDescription({ markdown }: ProductDescriptionProps) {
       >
         {shopCopy.descriptionHeading}
       </h2>
-      <div className="prose-shop max-w-none text-base leading-relaxed text-ink [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:font-display [&_h2]:text-xl [&_h2]:tracking-display [&_p]:mb-3 [&_p]:text-ink-muted [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_a]:text-accent [&_a]:underline">
+      <div className="prose-shop min-w-0 max-w-none break-words text-base leading-relaxed text-ink [overflow-wrap:anywhere] [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:font-display [&_h2]:text-xl [&_h2]:tracking-display [&_p]:mb-3 [&_p]:break-words [&_p]:text-ink-muted [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_a]:text-accent [&_a]:underline">
         <Markdown
           allowedElements={["p", "h1", "h2", "h3", "ul", "ol", "li", "strong", "em", "a"]}
           unwrapDisallowed
